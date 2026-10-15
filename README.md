@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-15%2B-1A4FD6" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Swift-6.4-F05138?logo=swift&logoColor=white" alt="Swift 6.4">
-  <img src="https://img.shields.io/badge/tests-582%20Swift%20%C2%B7%20179%20JS-2ea44f" alt="Tests: 582 Swift, 179 JS">
+  <img src="https://img.shields.io/badge/tests-585%20Swift%20%C2%B7%20179%20JS-2ea44f" alt="Tests: 585 Swift, 179 JS">
   <img src="https://img.shields.io/badge/License-TBD-lightgrey" alt="License: TBD">
 </p>
 
@@ -119,9 +119,9 @@ The download list is saved as you go, so quitting, a crash or a reboot doesn't l
 Downloads go into named queues. **Main** runs straight away: Start now and browser downloads go there. **Download later** puts a download in another queue (Later, unless you pick one), where it waits until that queue starts. **Move to queue** in a download's menu moves it between queues.
 
 - A queue starts when you choose **Start now**, once at a date and time, or daily at a time on the weekdays you pick. It can stop at a set time. A start missed while the Mac slept or Osprey was closed still counts until its window ends.
-- A queue can wait for Wi-Fi (not a phone hotspot or Low Data Mode), wait until the Mac is plugged in, and keep the Mac awake while it runs.
-- When a queue finishes by itself, it can notify you, quit Osprey, or put the Mac to sleep or shut it down. Sleep and Shut down count down 60 seconds first, with **Cancel**.
-- Each queue's status shows in the sidebar: "Running · 2 of 3", "Starts 2:00 AM", "Waiting for Wi-Fi".
+- A queue can wait for Wi-Fi (not a phone hotspot or Low Data Mode), wait until the Mac is plugged in, and keep the Mac awake while it runs. Without a network, every queue but Main waits.
+- When a queue finishes by itself, it can notify you, quit Osprey, or put the Mac to sleep or shut it down. Sleep and Shut down count down 60 seconds first, with **Cancel**, and don't happen if downloads are running again by then.
+- Each queue's status shows in the sidebar: "Running · 2 of 3", "Starts 2:00 AM", "Nothing waiting", "Waiting for Wi-Fi", "Offline — waiting".
 
 ## Privacy-first
 
@@ -229,7 +229,7 @@ The browser extensions live in `Extensions/` (`chrome`, `safari`, and `shared` c
 ## Testing
 
 ```sh
-# Swift tests (Swift Testing), about 582
+# Swift tests (Swift Testing), about 585
 cd Osprey && swift test
 
 # Extension tests (Node's built-in test runner), about 179
