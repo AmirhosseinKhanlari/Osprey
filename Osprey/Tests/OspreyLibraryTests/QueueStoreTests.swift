@@ -49,6 +49,22 @@ import Testing
         #expect(try String(contentsOf: aside, encoding: .utf8) == "{ not json")
     }
 
+    @Test func aFileThatCantBeReadIsMovedAsideSoASaveNeverOverwritesIt() throws {
+        let dir = TestTemp.unique("queues")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let file = dir.appending(path: "queues.json")
+        try Data(#"{"version":1,"queues":[]}"#.utf8).write(to: file)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path(percentEncoded: false))
+        let stamp = noon
+        let store = QueueStore(folder: dir, now: { stamp })
+        #expect(store.load() == QueueStore.defaults)
+        #expect(!exists(file))
+        let aside = dir.appending(path: "queues.unreadable-20261015T120000Z.json")
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: aside.path(percentEncoded: false))
+        try store.save(QueueStore.defaults)                            // the user's file is still there
+        #expect(try String(contentsOf: aside, encoding: .utf8) == #"{"version":1,"queues":[]}"#)
+    }
+
     @Test func anotherVersionIsMovedAsideAndLoadsTheDefaults() throws {
         let dir = TestTemp.unique("queues")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

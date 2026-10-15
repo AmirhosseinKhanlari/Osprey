@@ -5,8 +5,9 @@ import os
 /// `{"version":1,"queues":[Queue]}`, written atomically with mode 0600.
 ///
 /// - No file yet: Main and Later.
-/// - A file of another version is moved aside to `queues.v<N>-<date>.json`, an unreadable one to
-///   `queues.corrupt-<date>.json`; both load as Main and Later.
+/// - A file of another version is moved aside to `queues.v<N>-<date>.json`, a corrupt one to
+///   `queues.corrupt-<date>.json`, and one that can't be read at all (permissions) to `queues.unreadable-<date>.json`;
+///   all load as Main and Later, and the next save never overwrites the user's file.
 /// - Main is always first and always present; it can't be scheduled. Duplicate ids keep the first.
 public struct QueueStore: Sendable {
     public static let currentVersion = 1
@@ -29,10 +30,7 @@ public struct QueueStore: Sendable {
     public func load() -> [Queue] {
         AtomicFile.removeStaleTemporaryFiles(in: folder, for: Self.fileName)
         guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else { return Self.defaults }
-        guard let data = try? Data(contentsOf: fileURL) else {
-            Self.log.error("Couldn't read the queues")
-            return Self.defaults
-        }
+        guard let data = try? Data(contentsOf: fileURL) else { return moveAside(label: "unreadable") }
         let decoder = JSONDecoder()
         guard let probe = try? decoder.decode(VersionProbe.self, from: data) else { return moveAside(label: "corrupt") }
         guard probe.version == Self.currentVersion else { return moveAside(label: "v\(probe.version)") }
