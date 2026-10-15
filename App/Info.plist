@@ -24,5 +24,7 @@
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Osprey asks System Events to shut down your Mac when a queue set to “Shut down” finishes.</string>
 </dict>
 </plist>

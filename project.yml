@@ -51,11 +51,13 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.utilities
         LSMinimumSystemVersion: "15.0"
+        NSAppleEventsUsageDescription: Osprey asks System Events to shut down your Mac when a queue set to “Shut down” finishes.
     entitlements:
       path: App/Osprey.entitlements
       properties:
         com.apple.security.application-groups:
           - 8CG9QYMSR5.com.akhanlari.osprey
+        com.apple.security.automation.apple-events: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.akhanlari.osprey
