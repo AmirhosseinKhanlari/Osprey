@@ -57,6 +57,20 @@ import SwiftUI
         }
     }
 
+    /// The action being counted down to.
+    var action: PowerAction { model.action }
+
+    /// Switches to a stronger action (Sleep to Shut down) without restarting the count.
+    func upgrade(to action: PowerAction, queueName: String) {
+        guard !ended, action != model.action else { return }
+        model.action = action
+        model.queueName = queueName
+        if awake != nil {
+            awake = PowerAssertion(type: kIOPMAssertionTypePreventUserIdleSystemSleep,
+                                   reason: "Osprey is counting down to \(action.verb)")
+        }
+    }
+
     func close() {
         ended = true
         timer?.cancel()
@@ -101,8 +115,8 @@ import SwiftUI
 }
 
 @MainActor @Observable final class CountdownModel {
-    let action: PowerAction
-    let queueName: String
+    var action: PowerAction
+    var queueName: String
     var remaining: Int
 
     init(action: PowerAction, queueName: String, remaining: Int) {

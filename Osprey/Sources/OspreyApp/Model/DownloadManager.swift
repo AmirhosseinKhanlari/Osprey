@@ -270,7 +270,15 @@ final class DownloadManager {
         }
     }
 
-    func pauseAll() { items.filter { $0.status == .downloading || $0.status == .queued }.forEach(pause) }
+    /// Pauses what is running or about to start: downloads under way, those started by hand, and those queued in a
+    /// queue that runs now. Downloads waiting for a queue that isn't running are left alone, so its next start still
+    /// runs them.
+    func pauseAll() {
+        items.filter { item in
+            Self.isPending(item) && !item.heldByQueue
+                && (item.status == .downloading || item.startedByUser || decisions[item.queueID] == .run)
+        }.forEach(pause)
+    }
 
     /// Resumes what can continue. Restored failures without data (Retry) and files changed on the server (Restart)
     /// start over and delete partial data, so only their own button does that.

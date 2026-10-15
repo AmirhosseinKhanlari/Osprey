@@ -183,6 +183,18 @@ import Testing
         #expect(step(both, at: ny(2026, 10, 15, 9), fine).decision == .run)    // met again: it continues
     }
 
+    @Test func beingOfflineHoldsEveryActiveQueueButMain() {
+        let manual = Queue(name: "Manual", isActive: true, lastStartedAt: ny(2026, 10, 15, 8))
+        let offline = QueueConditions(isOffline: true)
+        #expect(step(manual, at: ny(2026, 10, 15, 9), offline).decision == .hold(reason: .offline))
+        var wifi = manual
+        wifi.onlyOnWiFi = true
+        #expect(step(wifi, at: ny(2026, 10, 15, 9), QueueConditions(isExpensive: true, isOffline: true)).decision
+                == .hold(reason: .offline))
+        #expect(step(.main, at: ny(2026, 10, 15, 9), offline).decision == .run)
+        #expect(step(manual, at: ny(2026, 10, 15, 9), fine).decision == .run)    // back online: it continues
+    }
+
     @Test func conditionsDontHoldAQueueThatIsntActive() {
         let queue = Queue(name: "Wi-Fi", onlyOnWiFi: true)
         #expect(step(queue, at: ny(2026, 10, 15, 9), QueueConditions(isExpensive: true)).decision == .stopped)

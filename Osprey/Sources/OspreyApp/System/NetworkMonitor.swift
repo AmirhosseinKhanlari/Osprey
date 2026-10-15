@@ -8,19 +8,21 @@ import Network
     private(set) var hasPath = false
     private(set) var isExpensive = false
     private(set) var isConstrained = false
+    private(set) var isOffline = false
     private var started = false
 
     func start(onChange: @escaping @MainActor @Sendable () -> Void) {
         guard !started else { return }
         started = true
         monitor.pathUpdateHandler = { [weak self] path in
-            let expensive = path.isExpensive, constrained = path.isConstrained
+            let expensive = path.isExpensive, constrained = path.isConstrained, offline = path.status != .satisfied
             MainActor.assumeIsolated {                   // the monitor runs on the main queue
-                guard let self,
-                      !self.hasPath || expensive != self.isExpensive || constrained != self.isConstrained else { return }
+                guard let self, !self.hasPath || expensive != self.isExpensive || constrained != self.isConstrained
+                        || offline != self.isOffline else { return }
                 self.hasPath = true
                 self.isExpensive = expensive
                 self.isConstrained = constrained
+                self.isOffline = offline
                 onChange()
             }
         }

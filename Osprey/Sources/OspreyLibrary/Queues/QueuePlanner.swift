@@ -6,6 +6,8 @@ public enum HoldReason: Sendable, Equatable {
     case wifi
     /// Only when plugged in, and the Mac is on battery.
     case power
+    /// No network at all: every queue but Main holds rather than failing its downloads.
+    case offline
 }
 
 /// What a queue does now.
@@ -25,11 +27,14 @@ public struct QueueConditions: Sendable, Equatable {
     public var isExpensive: Bool
     public var isConstrained: Bool
     public var onBattery: Bool
+    /// No usable network path.
+    public var isOffline: Bool
 
-    public init(isExpensive: Bool = false, isConstrained: Bool = false, onBattery: Bool = false) {
+    public init(isExpensive: Bool = false, isConstrained: Bool = false, onBattery: Bool = false, isOffline: Bool = false) {
         self.isExpensive = isExpensive
         self.isConstrained = isConstrained
         self.onBattery = onBattery
+        self.isOffline = isOffline
     }
 }
 
@@ -50,7 +55,7 @@ public struct QueueStep: Sendable, Equatable {
 ///   still counts while `now` is inside its window: from the start to the stop time, or without one to the end of
 ///   that day (`.daily`) or 24 h (`.once`). `lastStartedAt` marks starts already handled.
 /// - An active queue with a stop time deactivates at the first stop time after it started.
-/// - Unmet conditions hold an active queue.
+/// - Unmet conditions hold an active queue, and so does being offline (every queue but Main).
 public enum QueuePlanner {
     public static func step(_ queue: Queue, now: Date, calendar: Calendar, conditions: QueueConditions) -> QueueStep {
         let next = advance(queue, now: now, calendar: calendar)
@@ -66,6 +71,7 @@ public enum QueuePlanner {
             if let start = nextStart(queue, after: now, calendar: calendar) { return .wait(nextStart: start) }
             return .stopped
         }
+        if conditions.isOffline { return .hold(reason: .offline) }
         if queue.onlyOnWiFi && (conditions.isExpensive || conditions.isConstrained) { return .hold(reason: .wifi) }
         if queue.onlyOnAC && conditions.onBattery { return .hold(reason: .power) }
         return .run

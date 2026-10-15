@@ -4,6 +4,7 @@ import OspreyLibrary
 /// Debug builds only, so live checks need no hotspot, no unplugging, and never sleep or shut down the Mac:
 /// - `OspreyDebugExpensive`: the network counts as expensive (a hotspot).
 /// - `OspreyDebugOnBattery`: the Mac counts as on battery.
+/// - `OspreyDebugOffline`: there is no network.
 /// - Sleep and Shut down only log `Osprey: Debug dry run — would sleep now` (or `shut down`) when their countdown ends.
 ///
 /// Set them at launch (`-OspreyDebugExpensive YES`) or while running
@@ -12,12 +13,14 @@ import OspreyLibrary
 enum DebugOverrides {
     static let expensiveKey = "OspreyDebugExpensive"
     static let onBatteryKey = "OspreyDebugOnBattery"
+    static let offlineKey = "OspreyDebugOffline"
 
     static func apply(to conditions: QueueConditions) -> QueueConditions {
         #if DEBUG
         var conditions = conditions
         if UserDefaults.standard.bool(forKey: expensiveKey) { conditions.isExpensive = true }
         if UserDefaults.standard.bool(forKey: onBatteryKey) { conditions.onBattery = true }
+        if UserDefaults.standard.bool(forKey: offlineKey) { conditions.isOffline = true }
         return conditions
         #else
         return conditions

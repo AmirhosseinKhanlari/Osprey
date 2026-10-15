@@ -7,22 +7,30 @@ import UserNotifications
 /// - Notify: a notification.
 /// - Quit: quits Osprey (the usual quit: downloads pause and the list is saved).
 /// - Sleep, Shut down: a 60 s countdown panel with Cancel first. Sleep runs `pmset sleepnow`; Shut down sends System
-///   Events its Shut down command, which needs the user's Automation consent once. A Debug build only logs them.
+///   Events its Shut down command, which needs the user's Automation consent once. A Debug build only logs them. When
+///   the count ends, `canProceed` is asked again: if downloads run again (a capture, a scheduled start), nothing runs
+///   and a notification says so.
+/// - While a countdown runs, only a stronger action changes it (Shut down > Sleep > Quit), and the count keeps its time.
 @MainActor final class FinishActions: FinishActionPerforming {
     private var countdown: CountdownPanel?
+    private var canProceed: @MainActor () -> Bool = { true }
 
-    func perform(_ action: Queue.AfterFinish, queueName: String) {
+    func perform(_ action: Queue.AfterFinish, queueName: String, canProceed: @escaping @MainActor () -> Bool) {
         switch action {
         case .nothing:
             break
         case .notify:
             notify(title: "“\(queueName)” finished", body: "Its downloads are done.")
         case .quit:
+            guard countdown == nil else {
+                NSLog("Osprey: “%@” finished; Quit skipped, a stronger countdown is running", queueName)
+                return
+            }
             NSApp.terminate(nil)
         case .sleep:
-            startCountdown(.sleep, queueName: queueName)
+            startCountdown(.sleep, queueName: queueName, canProceed: canProceed)
         case .shutdown:
-            startCountdown(.shutDown, queueName: queueName)
+            startCountdown(.shutDown, queueName: queueName, canProceed: canProceed)
         }
     }
 
@@ -46,15 +54,34 @@ import UserNotifications
         }
     }
 
-    private func startCountdown(_ action: PowerAction, queueName: String) {
-        countdown?.close()
-        countdown = CountdownPanel(action: action, queueName: queueName) { [weak self] in
-            self?.countdown = nil
-            self?.run(action)
+    private func startCountdown(_ action: PowerAction, queueName: String, canProceed: @escaping @MainActor () -> Bool) {
+        self.canProceed = canProceed
+        if let countdown {
+            if action.strength > countdown.action.strength { countdown.upgrade(to: action, queueName: queueName) }
+            return                                       // the running count keeps its time
+        }
+        let panel = CountdownPanel(action: action, queueName: queueName) { [weak self] in
+            guard let self, let action = self.countdown?.action else { return }
+            self.countdown = nil
+            self.proceed(action)
         } onCancel: { [weak self] in
             self?.countdown = nil
         }
-        countdown?.show()
+        countdown = panel
+        panel.show()
+    }
+
+    /// The count is over: runs `action` unless downloads are running again.
+    private func proceed(_ action: PowerAction) {
+        guard canProceed() else {
+            NSLog("Osprey: didn't %@ — downloads were still running", action.verb)
+            switch action {
+            case .sleep: notify(title: "Osprey didn’t put your Mac to sleep", body: "Downloads were still running.")
+            case .shutDown: notify(title: "Osprey didn’t shut down your Mac", body: "Downloads were still running.")
+            }
+            return
+        }
+        run(action)
     }
 
     private func run(_ action: PowerAction) {
@@ -169,6 +196,14 @@ enum PowerAction {
         switch self {
         case .sleep: "sleep"
         case .shutDown: "shut down"
+        }
+    }
+
+    /// Shut down beats Sleep (and both beat Quit).
+    var strength: Int {
+        switch self {
+        case .sleep: 1
+        case .shutDown: 2
         }
     }
 

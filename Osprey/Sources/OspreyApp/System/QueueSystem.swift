@@ -9,6 +9,8 @@ import OspreyLibrary
     var isExpensive: Bool { get }
     /// Low Data Mode.
     var isConstrained: Bool { get }
+    /// The current path isn't usable (no network, or it needs a connection first).
+    var isOffline: Bool { get }
     /// Begins watching; `onChange` runs on the main thread after each change.
     func start(onChange: @escaping @MainActor @Sendable () -> Void)
 }
@@ -37,7 +39,9 @@ enum ShutdownPermission: Sendable {
 
 /// Runs a queue's after-finish action.
 @MainActor protocol FinishActionPerforming: AnyObject {
-    func perform(_ action: Queue.AfterFinish, queueName: String)
+    /// `canProceed` is asked again when a Sleep or Shut down countdown ends; when it says no (downloads are running
+    /// again), the action doesn't run and a notification says so.
+    func perform(_ action: Queue.AfterFinish, queueName: String, canProceed: @escaping @MainActor () -> Bool)
     /// Asks for Automation consent to System Events if not yet given; true when Shut down may run.
     func requestShutdownPermission() async -> Bool
     /// Checks without asking.
@@ -72,9 +76,11 @@ enum ShutdownPermission: Sendable {
     }
 
     /// The conditions now, with the Debug build's overrides applied. Before the first network path, the network counts
-    /// as expensive, so a Wi-Fi-only queue holds rather than starting on a network that may be a hotspot.
+    /// as expensive, so a Wi-Fi-only queue holds rather than starting on a network that may be a hotspot; it counts as
+    /// offline only once a path says so (that path arrives within milliseconds of launch).
     var conditions: QueueConditions {
         DebugOverrides.apply(to: QueueConditions(isExpensive: network.isExpensive || !network.hasPath,
-                                                 isConstrained: network.isConstrained, onBattery: power.onBattery))
+                                                 isConstrained: network.isConstrained, onBattery: power.onBattery,
+                                                 isOffline: network.hasPath && network.isOffline))
     }
 }

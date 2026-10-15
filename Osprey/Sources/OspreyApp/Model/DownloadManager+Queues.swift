@@ -110,11 +110,21 @@ extension DownloadManager {
     private func runFinishActions(_ finished: [Queue]) {
         let strength: [Queue.AfterFinish: Int] = [.quit: 1, .sleep: 2, .shutdown: 3]
         for queue in finished where queue.afterFinish == .notify {
-            system.finishActions.perform(.notify, queueName: queue.name)
+            system.finishActions.perform(.notify, queueName: queue.name, canProceed: { true })
         }
         let power = finished.compactMap { queue in strength[queue.afterFinish].map { (queue, $0) } }
         if let (queue, _) = power.max(by: { $0.1 < $1.1 }) {
-            system.finishActions.perform(queue.afterFinish, queueName: queue.name)
+            system.finishActions.perform(queue.afterFinish, queueName: queue.name) { [weak self] in
+                self?.isIdleForPowerAction ?? true
+            }
+        }
+    }
+
+    /// Nothing is downloading and nothing is about to start (queued in a running queue, or started by hand): Sleep or
+    /// Shut down may still run when its countdown ends.
+    var isIdleForPowerAction: Bool {
+        activeCount == 0 && !items.contains { item in
+            item.status == .queued && (item.startedByUser || decisions[item.queueID] == .run)
         }
     }
 
@@ -299,6 +309,7 @@ extension DownloadManager {
     /// paused.
     func move(_ item: DownloadItem, to queueID: UUID) {
         guard item.queueID != queueID, queues.contains(where: { $0.id == queueID }) else { return }
+        noteUserInterruption(of: item)                   // moving its last download out doesn't "finish" the source
         item.queueID = queueID
         item.startedByUser = false                        // it follows the new queue's limit
         if queueID == Queue.mainID {
@@ -319,12 +330,14 @@ extension DownloadManager {
         return filter.title
     }
 
-    /// "Running · 2 of 3", "Starts 2:00 AM", "Waiting for Wi-Fi", "On battery — waiting", "Stopped".
+    /// "Running · 2 of 3", "Starts 2:00 AM", "Nothing waiting", "Waiting for Wi-Fi", "On battery — waiting",
+    /// "Offline — waiting", "Stopped".
     func statusLine(for queue: Queue) -> String {
         let mine = items.filter { $0.queueID == queue.id }
         return QueueStatusText.line(decisions[queue.id] ?? .stopped, isMain: queue.isMain,
                                     running: mine.filter { $0.status == .downloading }.count,
                                     pending: mine.filter(Self.isPending).count,
+                                    waiting: mine.filter(Self.isWaiting).count,
                                     now: Date(), calendar: .autoupdatingCurrent)
     }
 }
