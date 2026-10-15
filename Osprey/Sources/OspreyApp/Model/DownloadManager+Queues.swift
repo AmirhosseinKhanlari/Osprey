@@ -118,10 +118,12 @@ extension DownloadManager {
         }
     }
 
-    /// The user paused or removed `item`: if it was queued or running in an active queue, that activation ends without
-    /// its after-finish action.
+    /// The user is pausing or removing `item`. When that leaves its active queue with nothing queued or running, the
+    /// user ended the activation, which then finishes without its after-finish action. Pausing or removing one download
+    /// among others doesn't cancel the action.
     func noteUserInterruption(of item: DownloadItem) {
-        guard Self.isPending(item), queue(item.queueID)?.isActive == true else { return }
+        guard Self.isPending(item), queue(item.queueID)?.isActive == true,
+              !items.contains(where: { $0.id != item.id && $0.queueID == item.queueID && Self.isPending($0) }) else { return }
         interruptedQueues.insert(item.queueID)
     }
 
@@ -298,6 +300,7 @@ extension DownloadManager {
     func move(_ item: DownloadItem, to queueID: UUID) {
         guard item.queueID != queueID, queues.contains(where: { $0.id == queueID }) else { return }
         item.queueID = queueID
+        item.startedByUser = false                        // it follows the new queue's limit
         if queueID == Queue.mainID {
             item.waitingInQueue = false                   // Main has no start to wait for
         } else if item.status == .paused {

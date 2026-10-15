@@ -198,6 +198,7 @@ final class DownloadManager {
 
     /// Resume; for a restored failure or a file that changed on the server, Retry / Restart (`retry`). In a queue other
     /// than Main it starts now, outside the queue's limit and whether or not the queue runs, and stays in its queue.
+    /// Resume all (`resumeAll`) only queues instead.
     func resume(_ item: DownloadItem) {
         if item.isArchived || item.needsRestart {
             retry(item)
@@ -273,8 +274,14 @@ final class DownloadManager {
 
     /// Resumes what can continue. Restored failures without data (Retry) and files changed on the server (Restart)
     /// start over and delete partial data, so only their own button does that.
+    /// Each one is queued, not started by hand: it runs when its queue runs, within that queue's limit (Main's too).
     func resumeAll() {
-        items.filter { ($0.status == .paused || $0.status == .failed) && !$0.isArchived && !$0.needsRestart }.forEach(resume)
+        for item in items where (item.status == .paused || item.status == .failed) && !item.isArchived && !item.needsRestart {
+            item.wantsToRun = true
+            item.waitingInQueue = item.queueID != Queue.mainID     // waits for its queue, also across a restart
+            saveNow(item)
+        }
+        scheduleQueue()
     }
 
     // MARK: Polling
