@@ -186,6 +186,7 @@ extension DownloadManager {
             await Self.discardData(of: item.task, keeping: inUse)
             let credentials = stored.isEmpty ? inMemory : stored
             guard let fresh = replacement(for: item, credentials: credentials) else { return }
+            fresh.queueID = queues.contains { $0.id == item.queueID } ? item.queueID : Queue.mainID   // stays in its queue
             insert(fresh, at: min(index, items.count), credentials: credentials)
         }
     }
@@ -219,6 +220,7 @@ extension DownloadManager {
         stopQueue()
         // A queue start already on its way checks these and starts nothing (and pauses a job whose start was sent).
         for item in items {
+            if item.wantsToRun { item.waitingInQueue = true }   // saved waiting: it runs when its queue next starts
             item.wantsToRun = false
             item.startRequested = false
         }
@@ -229,13 +231,15 @@ extension DownloadManager {
                                       flush: { await library.flush() })
     }
 
-    /// Saves every listed, non-private item whose state changed since it was last saved, from its latest snapshot: a
-    /// stopped merge is saved `readyToMerge`. Restored finished and failed items (`ArchivedTask`) never change.
+    /// Saves every listed, non-private item whose state changed since it was last saved, or that waits in its queue,
+    /// from its latest snapshot: a stopped merge is saved `readyToMerge`. Restored finished and failed items
+    /// (`ArchivedTask`) never change.
     func saveAllForQuit() async {
         for item in items where !item.isPrivate && !item.isArchived {
             item.snapshot = await item.task.snapshot()
             if let media = item.task as? MediaDownload { item.media = await media.mediaSnapshot() }
-            guard let saved = savedStates[item.id], saved != item.snapshot.state else { continue }
+            // A download saved waiting is written again, so its waiting intent (set by `prepareForQuit`) is on disk.
+            guard let saved = savedStates[item.id], saved != item.snapshot.state || item.waitingInQueue else { continue }
             savedStates[item.id] = item.snapshot.state
             await recorder.changed(record(for: item), isPrivate: false, flush: false)
         }

@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 import OspreyEngine
 import OspreyIntegration
@@ -8,7 +8,6 @@ import OspreyMedia
 @MainActor @Observable
 final class DownloadManager {
     private(set) var items: [DownloadItem] = []
-    var maxConcurrent = 4
     var speedLimitMBps: Double? { didSet { applySpeedLimit() } }
     private(set) var throughputHistory: [Double] = Array(repeating: 0, count: 120)
     private(set) var totalSpeed: Double = 0
@@ -26,6 +25,17 @@ final class DownloadManager {
     /// The queues (`queues.json`), Main first. Changed only by DownloadManager+Queues.swift, which saves them.
     let queueStore: QueueStore
     var queues: [Queue]
+    /// Each queue's decision from the last planning pass; the sidebar's status lines read it.
+    var decisions: [UUID: QueueDecision] = [:]
+    /// Network and power state, sleep assertions and after-finish actions.
+    let system: QueueSystem
+    /// Downloads that completed during each queue's current activation.
+    @ObservationIgnored var completions: [UUID: Set<UUID>] = [:]
+    /// Fires at the next start or stop instant.
+    @ObservationIgnored var queueTimer: Task<Void, Never>?
+    @ObservationIgnored var queueTimerDate: Date?
+    @ObservationIgnored var queueObservers: [any NSObjectProtocol] = []
+    @ObservationIgnored var sleepNeeds = SleepNeeds()
     /// Hidden part folders of the unfinished videos `restore()` brought back; the launch sweep keeps them.
     @ObservationIgnored var restoredHiddenFolderIDs: Set<UUID> = []
     /// The state each item was last saved with, so a change is saved (and flushed) once.
@@ -34,11 +44,12 @@ final class DownloadManager {
     @ObservationIgnored private var tickCount = 0
     @ObservationIgnored private var lastRefresh = ContinuousClock.now
     /// Set while quitting: the queue starts nothing more.
-    @ObservationIgnored private var queueStopped = false
+    @ObservationIgnored private(set) var queueStopped = false
 
     init(rootFolder: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0],
          mediaTools: MediaTools = MediaTools(), library: DownloadLibrary = DownloadLibrary(),
-         vault: any CredentialStoring = CredentialVault(), queueStore: QueueStore = QueueStore()) {
+         vault: any CredentialStoring = CredentialVault(), queueStore: QueueStore = QueueStore(),
+         system: QueueSystem = .live()) {
         self.rootFolder = rootFolder
         self.mediaTools = mediaTools
         self.library = library
@@ -46,6 +57,7 @@ final class DownloadManager {
         recorder = LibraryRecorder(library: library, vault: vault)
         self.queueStore = queueStore
         queues = queueStore.load()
+        self.system = system
     }
 
     var activeCount: Int { items.filter { $0.status == .downloading }.count }
@@ -68,13 +80,19 @@ final class DownloadManager {
 
     // MARK: Adding
 
+    /// "Start now" goes to Main and starts. "Download later" waits in `queue` (by default Later, or the first queue
+    /// after Main) for that queue to run; "later" in Main itself is added paused.
     @discardableResult
     func add(_ url: URL, connections: Int, category: Category?, startNow: Bool, origin: DownloadOrigin = .addURL,
-             headers: [String: String] = [:], preferredFilename: String? = nil, isPrivate: Bool = false) -> DownloadItem {
+             headers: [String: String] = [:], preferredFilename: String? = nil, isPrivate: Bool = false,
+             queue: UUID? = nil) -> DownloadItem {
         let category = category ?? Category.infer(fromFileName: Self.inferenceName(preferredFilename) ?? url.lastPathComponent)
+        let queueID = startNow ? Queue.mainID : (queue ?? defaultLaterQueueID)
         let item = makeFileItem(url: url, folder: rootFolder.appending(path: category.rawValue), category: category,
                                 connections: connections, origin: origin, headers: headers,
-                                preferredFilename: preferredFilename, isPrivate: isPrivate, startNow: startNow)
+                                preferredFilename: preferredFilename, isPrivate: isPrivate,
+                                startNow: startNow || queueID != Queue.mainID)
+        item.queueID = queueID
         insert(item, at: 0, credentials: headers)
         return item
     }
@@ -164,7 +182,9 @@ final class DownloadManager {
         guard !item.isMerging else { return }        // a merge can't be paused; it finishes on its own
         item.wantsToRun = false
         item.startRequested = false
+        item.waitingInQueue = false
         Task { await item.task.pause() }
+        saveNow(item)                                 // a waiting download's pause changes no state the poll would see
     }
 
     /// Resume; for a restored failure or a file that changed on the server, Retry / Restart (`retry`).
@@ -174,6 +194,8 @@ final class DownloadManager {
             return
         }
         item.wantsToRun = true
+        item.waitingInQueue = false
+        saveNow(item)
         scheduleQueue()
     }
 
@@ -247,6 +269,7 @@ final class DownloadManager {
 
     func startPolling() {
         guard pollTask == nil else { return }
+        startQueueTriggers()
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -261,6 +284,8 @@ final class DownloadManager {
         queueStopped = true
         pollTask?.cancel()
         pollTask = nil
+        queueTimer?.cancel()
+        queueTimer = nil
     }
 
     private func refresh() async {
@@ -291,10 +316,15 @@ final class DownloadManager {
                 if previous.state != snapshot.state {
                     item.startRequested = false
                     item.wantsToRun = false
-                    if snapshot.state == .completed { item.completedAt = .now }
+                    item.waitingInQueue = false
+                    if snapshot.state == .completed {
+                        item.completedAt = .now
+                        completions[item.queueID, default: []].insert(item.id)   // counts toward finishing its queue
+                    }
                 }
+                if item.heldByQueue { item.heldByQueue = false }
             default:
-                break
+                if item.heldByQueue { item.heldByQueue = false }       // the queue's pause reached the task
             }
             noteForLibrary(item, previous: previous)
         }
@@ -318,32 +348,28 @@ final class DownloadManager {
         return next == history ? nil : next
     }
 
-    /// Main queue: oldest first, at most `maxConcurrent` running (default 4).
-    private func scheduleQueue() {
-        guard !queueStopped else { return }
-        var running = items.filter { $0.status == .downloading }.count
-        for item in items.reversed() where item.status == .queued && running < maxConcurrent {
-            item.startRequested = true
-            running += 1
-            Task {
-                // Quitting (or a pause) may have come between scheduling and this task running: start nothing then.
-                guard !queueStopped, item.wantsToRun else {
-                    item.startRequested = false
-                    return
-                }
-                // start() returns only after the probe finishes. A job that fails here can
-                // go .failed -> .failed between two polls, which refresh() never sees as a
-                // transition, so clear intent here or the item stays "downloading" forever.
-                await item.task.start()
-                let snapshot = await item.task.snapshot()
-                item.snapshot = snapshot
-                if case .failed = snapshot.state {
-                    item.startRequested = false
-                    item.wantsToRun = false
-                } else if !item.wantsToRun {
-                    // pause()/remove() may have been sent before start() ran; re-check intent.
-                    await item.task.pause()
-                }
+    /// Sends `start()` to a queued download. Quitting, a pause, or its queue stopping may come between this call and
+    /// the task running: it then starts nothing, or pauses a job whose start was already sent.
+    func start(_ item: DownloadItem) {
+        item.startRequested = true
+        item.heldByQueue = false
+        Task {
+            guard !queueStopped, item.wantsToRun, decisions[item.queueID] == .run else {
+                item.startRequested = false
+                return
+            }
+            // start() returns only after the probe finishes. A job that fails here can
+            // go .failed -> .failed between two polls, which refresh() never sees as a
+            // transition, so clear intent here or the item stays "downloading" forever.
+            await item.task.start()
+            let snapshot = await item.task.snapshot()
+            item.snapshot = snapshot
+            if case .failed = snapshot.state {
+                item.startRequested = false
+                item.wantsToRun = false
+            } else if !item.wantsToRun || decisions[item.queueID] != .run {
+                // pause()/remove() may have been sent before start() ran, or the queue stopped meanwhile.
+                await item.task.pause()
             }
         }
     }
