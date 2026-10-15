@@ -23,7 +23,26 @@ extension DownloadManager {
                               destination: snapshot.destination ?? item.folder.appending(path: snapshot.fileName),
                               downloaded: snapshot.downloaded, totalSize: snapshot.totalSize,
                               activeSeconds: item.activeSeconds, hasStoredCredentials: item.hasStoredCredentials,
-                              media: media, preferredFilename: item.preferredFilename, headers: item.requestHeaders)
+                              media: media, preferredFilename: item.preferredFilename, headers: item.requestHeaders,
+                              queueID: item.queueID == Queue.mainID ? nil : item.queueID,
+                              waitingInQueue: Self.isWaiting(item))
+    }
+
+    /// Unfinished and meant to run (queued, running, or paused by its queue), or restored waiting and untouched since.
+    static func isWaiting(_ item: DownloadItem) -> Bool {
+        switch item.snapshot.state {
+        case .completed, .failed: false
+        default: item.wantsToRun || item.waitingInQueue
+        }
+    }
+
+    /// Saves `item` now, for a change its state doesn't show: a pause or resume of a download that isn't running, or a
+    /// move to another queue.
+    func saveNow(_ item: DownloadItem) {
+        guard !item.isPrivate, savedStates[item.id] != nil else { return }
+        let record = record(for: item)
+        let recorder = self.recorder
+        Task { await recorder.changed(record, isPrivate: false, flush: true) }
     }
 
     /// Saves `item` when its state changed since the last save (flushed for a pause, failure or completion), or when it
@@ -76,8 +95,13 @@ extension DownloadManager {
         for (record, action) in planned where action.resumes && record.hasStoredCredentials {
             credentials[record.id] = vault.headers(id: record.id)
         }
+        let queueIDs = Set(queues.map(\.id))
         for (record, action) in planned {
-            appendRestored(restoredItem(record, action: action, credentials: credentials[record.id] ?? [:]))
+            let item = restoredItem(record, action: action, credentials: credentials[record.id] ?? [:])
+            let placement = RestorePlanner.queuePlacement(for: record, existing: queueIDs)
+            item.queueID = placement.queueID
+            item.waitingInQueue = placement.waiting
+            appendRestored(item)
         }
         let recorder = self.recorder
         Task(priority: .utility) {

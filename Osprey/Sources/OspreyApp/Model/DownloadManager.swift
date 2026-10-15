@@ -23,6 +23,9 @@ final class DownloadManager {
     let library: DownloadLibrary
     let vault: any CredentialStoring
     let recorder: LibraryRecorder
+    /// The queues (`queues.json`), Main first. Changed only by DownloadManager+Queues.swift, which saves them.
+    let queueStore: QueueStore
+    var queues: [Queue]
     /// Hidden part folders of the unfinished videos `restore()` brought back; the launch sweep keeps them.
     @ObservationIgnored var restoredHiddenFolderIDs: Set<UUID> = []
     /// The state each item was last saved with, so a change is saved (and flushed) once.
@@ -35,12 +38,14 @@ final class DownloadManager {
 
     init(rootFolder: URL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask)[0],
          mediaTools: MediaTools = MediaTools(), library: DownloadLibrary = DownloadLibrary(),
-         vault: any CredentialStoring = CredentialVault()) {
+         vault: any CredentialStoring = CredentialVault(), queueStore: QueueStore = QueueStore()) {
         self.rootFolder = rootFolder
         self.mediaTools = mediaTools
         self.library = library
         self.vault = vault
         recorder = LibraryRecorder(library: library, vault: vault)
+        self.queueStore = queueStore
+        queues = queueStore.load()
     }
 
     var activeCount: Int { items.filter { $0.status == .downloading }.count }

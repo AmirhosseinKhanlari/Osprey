@@ -102,11 +102,16 @@ final class DownloadItem: Identifiable {
     @ObservationIgnored var credentials: [String: String] = [:]
     /// A finished download whose file was deleted or moved since: only Retry and Remove from list remain.
     var fileMissing = false
+    /// The queue it belongs to (`Queue.mainID` for Main).
+    var queueID: UUID
+    /// Restored paused from a queue it was waiting in: it runs when that queue next starts. Pausing or resuming it
+    /// by hand clears this.
+    @ObservationIgnored var waitingInQueue = false
 
     init(task: any DownloadTask, url: URL, category: Category, origin: DownloadOrigin, maxConnections: Int, wantsToRun: Bool,
          folder: URL, isPrivate: Bool = false, kind: ItemKind = .file, playlistTitle: String? = nil, displayName: String? = nil,
          preferredFilename: String? = nil, requestHeaders: [String: String] = [:], addedAt: Date = Date(),
-         isRestored: Bool = false, archivedMedia: MediaRecord? = nil) {
+         isRestored: Bool = false, archivedMedia: MediaRecord? = nil, queueID: UUID = Queue.mainID) {
         self.id = task.id
         self.task = task
         self.kind = kind
@@ -123,6 +128,7 @@ final class DownloadItem: Identifiable {
         self.addedAt = addedAt
         self.isRestored = isRestored
         self.archivedMedia = archivedMedia
+        self.queueID = queueID
         self.snapshot = .placeholder(fileName: displayName
             ?? (url.lastPathComponent.isEmpty ? (url.host() ?? "download") : url.lastPathComponent))
     }

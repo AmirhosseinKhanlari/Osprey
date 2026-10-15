@@ -139,6 +139,14 @@ public enum RestorePlanner {
         Set(actions.filter { $0.value.resumes }.keys)
     }
 
+    /// Where a restored download goes: its saved queue while that queue still exists, else Main. It waits for its queue's
+    /// next start only when it was saved waiting (queued, not paused by the user), is unfinished, and isn't in Main,
+    /// which never "starts".
+    public static func queuePlacement(for record: DownloadRecord, existing: Set<UUID>) -> (queueID: UUID, waiting: Bool) {
+        guard let id = record.queueID, id != Queue.mainID, existing.contains(id) else { return (Queue.mainID, false) }
+        return (id, record.isUnfinished && record.waitingInQueue)
+    }
+
     /// The hidden part folders the launch sweep must not delete: those of videos that resume.
     public static func hiddenFolderIDsToKeep(_ actions: some Collection<RestoreAction>) -> Set<UUID> {
         Set(actions.compactMap { if case .resumeMedia(let media) = $0 { media.hiddenFolderID } else { nil } })

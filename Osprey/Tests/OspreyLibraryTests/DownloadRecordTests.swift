@@ -24,3 +24,42 @@ import OspreyEngine
         #expect(!fileRecord(state: .completed).isUnfinished)
     }
 }
+
+@Suite struct DownloadRecordQueueTests {
+    @Test func aRecordSavedBeforeQueuesLoadsIntoMainAndNotWaiting() throws {
+        let record = fileRecord()
+        var object = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(record)) as? [String: Any])
+        #expect(object["queueID"] == nil)                       // Main is saved as no queue
+        object.removeValue(forKey: "waitingInQueue")
+        let decoded = try JSONDecoder().decode(DownloadRecord.self, from: JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.queueID == nil && !decoded.waitingInQueue)
+        #expect(decoded == record)
+    }
+
+    @Test func theQueueAndWaitingRoundTrip() throws {
+        var record = fileRecord()
+        record.queueID = Queue.laterID
+        record.waitingInQueue = true
+        #expect(try JSONDecoder().decode(DownloadRecord.self, from: JSONEncoder().encode(record)) == record)
+    }
+
+    @Test func aRestoredDownloadGoesToItsQueueOrMain() {
+        var waiting = fileRecord()
+        waiting.queueID = Queue.laterID
+        waiting.waitingInQueue = true
+        let placed = RestorePlanner.queuePlacement(for: waiting, existing: [Queue.mainID, Queue.laterID])
+        #expect(placed.queueID == Queue.laterID && placed.waiting)
+        // Its queue was deleted: Main, not waiting.
+        let orphan = RestorePlanner.queuePlacement(for: waiting, existing: [Queue.mainID])
+        #expect(orphan.queueID == Queue.mainID && !orphan.waiting)
+        // Paused by the user, or finished: it stays where it is and doesn't wait.
+        var paused = waiting
+        paused.waitingInQueue = false
+        #expect(!RestorePlanner.queuePlacement(for: paused, existing: [Queue.laterID]).waiting)
+        var done = waiting
+        done.state = .completed
+        #expect(!RestorePlanner.queuePlacement(for: done, existing: [Queue.laterID]).waiting)
+        // No queue at all is Main.
+        #expect(RestorePlanner.queuePlacement(for: fileRecord(), existing: [Queue.laterID]).queueID == Queue.mainID)
+    }
+}
