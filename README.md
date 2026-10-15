@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-15%2B-1A4FD6" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Swift-6.4-F05138?logo=swift&logoColor=white" alt="Swift 6.4">
-  <img src="https://img.shields.io/badge/tests-538%20Swift%20%C2%B7%20173%20JS-2ea44f" alt="Tests: 538 Swift, 173 JS">
+  <img src="https://img.shields.io/badge/tests-538%20Swift%20%C2%B7%20179%20JS-2ea44f" alt="Tests: 538 Swift, 179 JS">
   <img src="https://img.shields.io/badge/License-TBD-lightgrey" alt="License: TBD">
 </p>
 
@@ -222,7 +222,7 @@ The browser extensions live in `Extensions/` (`chrome`, `safari`, and `shared` c
 # Swift tests (Swift Testing), about 538
 cd Osprey && swift test
 
-# Extension tests (Node's built-in test runner), about 173
+# Extension tests (Node's built-in test runner), about 179
 cd Extensions && npm test
 ```
 
