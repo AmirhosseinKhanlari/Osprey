@@ -16,6 +16,8 @@ struct ContentView: View {
     @State private var pickerClosing = false
     /// The picker was asked for while another sheet was up; it shows once that sheet has gone.
     @State private var pickerAfterSheet = false
+    /// The queue editor (new or existing). Held here, not in the sidebar, which re-renders on every progress tick.
+    @State private var queueEditor: QueueEditorRequest?
     @AppStorage("didShowSafariSetup") private var didShowSafariSetup = false
     @State private var showSafariSetup = false
     /// First-run Safari setup came due while the picker was up; it shows after the picker.
@@ -26,9 +28,10 @@ struct ContentView: View {
     /// that closed the picker's open menus (Quality, Audio, Subtitles) about once a second.
     var body: some View {
         MainWindowContent(filter: $filter, selection: $selection, search: $search, showInspector: $showInspector,
-                          showAdd: $showAdd)
+                          showAdd: $showAdd, queueEditor: $queueEditor)
         .tint(Theme.accent)
         .sheet(isPresented: $showAdd, onDismiss: showQueuedPicker) { AddDownloadSheet() }
+        .sheet(item: $queueEditor) { request in QueueEditorSheet(request: request) }
         .sheet(isPresented: $showSafariSetup, onDismiss: {
             didShowSafariSetup = true          // only once seen: a sheet lost to a launch-time race shows next launch
             showQueuedPicker()
@@ -110,6 +113,7 @@ private struct MainWindowContent: View {
     @Binding var search: String
     @Binding var showInspector: Bool
     @Binding var showAdd: Bool
+    @Binding var queueEditor: QueueEditorRequest?
     /// Bumped by Edit › Find (⌘F) through `focusedSceneValue`; the search field focuses itself when it changes. (A focus
     /// binding owned here doesn't reach the field, which the toolbar hosts on its own.)
     @State private var searchFocusRequest = 0
@@ -118,7 +122,7 @@ private struct MainWindowContent: View {
         let current = filter ?? .all
         let visible = manager.items(for: current, search: search)
         NavigationSplitView {
-            SidebarView(filter: $filter)
+            SidebarView(filter: $filter, queueEditor: $queueEditor)
                 .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 320)
         } detail: {
             VStack(spacing: 14) {
@@ -142,7 +146,7 @@ private struct MainWindowContent: View {
             .background(WindowBackdrop().ignoresSafeArea())
             // The backdrop shows through the toolbar, as in the design; its items carry their own glass.
             .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-            .navigationTitle(current.title)
+            .navigationTitle(manager.title(for: current))
             .navigationSubtitle(subtitle(visible.count))
             .modifier(LegacySearchField(search: $search, focusRequest: searchFocusRequest))
             .focusedSceneValue(\.focusSearch, FocusSearchAction { searchFocusRequest += 1 })

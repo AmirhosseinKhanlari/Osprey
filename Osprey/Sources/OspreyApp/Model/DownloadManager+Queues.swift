@@ -313,6 +313,12 @@ extension DownloadManager {
 
     // MARK: Sidebar
 
+    /// The window title for `filter`: a queue's name, else the filter's own title.
+    func title(for filter: SidebarFilter) -> String {
+        if case .queue(let id) = filter { return queue(id)?.name ?? filter.title }
+        return filter.title
+    }
+
     /// "Running · 2 of 3", "Starts 2:00 AM", "Waiting for Wi-Fi", "On battery — waiting", "Stopped".
     func statusLine(for queue: Queue) -> String {
         let mine = items.filter { $0.queueID == queue.id }

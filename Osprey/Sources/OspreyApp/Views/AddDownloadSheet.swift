@@ -1,4 +1,5 @@
 import OspreyEngine
+import OspreyLibrary
 import OspreyMedia
 import SwiftUI
 import UniformTypeIdentifiers
@@ -12,6 +13,8 @@ struct AddDownloadSheet: View {
     @State private var category: Category = .other
     @State private var connections = 8
     @State private var startNow = true
+    /// "Download later"'s queue; nil until the user picks one (then Later, or the first queue after Main).
+    @State private var laterQueue: UUID?
     @State private var probe: ProbeResult?
     @State private var probeError: String?
     /// Once the user picks a category, the probe stops suggesting one.
@@ -76,10 +79,11 @@ struct AddDownloadSheet: View {
                 FormRow(title: "Connections") {
                     ChipStepper(label: "connections", values: steps, value: $connections)
                 }
-                FormRow(title: "When", showsDivider: false) {
-                    // "Later" adds it without starting, like before; Resume or Resume all starts it.
+                FormRow(title: "When") {
+                    // "Later" waits in a queue until that queue starts (by hand or on its schedule).
                     ChipSegments(options: [(true, "Start now"), (false, "Download later")], selection: $startNow)
                 }
+                FormRow(title: "Queue", showsDivider: false) { queuePicker }
             }
             HStack(spacing: 10) {
                 Spacer()
@@ -107,6 +111,28 @@ struct AddDownloadSheet: View {
             addressFocused = true
         }
         .task(id: address) { await runProbe() }
+    }
+
+    /// Always shown, so the sheet keeps its size: "Start now" goes to Main (shown dimmed), "Download later" to the
+    /// queue picked here.
+    private var queuePicker: some View {
+        let chosen = startNow ? manager.queue(Queue.mainID) : manager.queue(laterQueue ?? manager.defaultLaterQueueID)
+        let name = chosen?.name ?? "Main"
+        return Menu {
+            ForEach(manager.queues) { queue in
+                Button(queue.name) { laterQueue = queue.id }
+            }
+        } label: {
+            ChipLabel(text: name, maxTextWidth: 220)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .disabled(startNow)
+        .opacity(startNow ? 0.5 : 1)
+        .help(startNow ? "Start now downloads in Main. Choose Download later to pick a queue." : "The queue it waits in")
+        .accessibilityLabel("Queue, \(name)")
     }
 
     private var addressField: some View {
@@ -160,7 +186,8 @@ struct AddDownloadSheet: View {
 
     private func add() {
         guard let url else { return }
-        manager.add(url, connections: connections, category: category, startNow: startNow)
+        manager.add(url, connections: connections, category: category, startNow: startNow,
+                    queue: startNow ? nil : (laterQueue ?? manager.defaultLaterQueueID))
         dismiss()
     }
 }

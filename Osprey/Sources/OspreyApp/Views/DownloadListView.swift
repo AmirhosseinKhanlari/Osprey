@@ -64,7 +64,7 @@ struct DownloadListView: View {
                             .accessibilityAddTraits(selection == item.id ? [.isButton, .isSelected] : .isButton)
                             .accessibilityAction { select(item) }
                             .accessibilityAction(named: "Remove") { pendingRemoval = item }
-                            .contextMenu { menu(for: item) }
+                            .contextMenu { RowMenu(item: item) { pendingRemoval = item }.equatable() }
                             .id(item.id)
                     }
                 }
@@ -131,19 +131,68 @@ struct DownloadListView: View {
         .lineLimit(1)
         .padding(.horizontal, 18)
     }
+}
 
-    @ViewBuilder private func menu(for item: DownloadItem) -> some View {
-        if item.status == .downloading || item.status == .queued {
+/// What a row's context menu shows, read once per render from the item. The menu view compares only this, so a
+/// progress tick (which re-renders the list) leaves an open menu, and its Move to queue submenu, as they are.
+private struct RowMenuState: Equatable {
+    let status: ItemStatus
+    let isMerging: Bool
+    let resumeTitle: String
+    let fileMissing: Bool
+    let destination: URL?
+    let queueID: UUID
+
+    @MainActor init(_ item: DownloadItem) {
+        status = item.status
+        isMerging = item.isMerging
+        resumeTitle = item.resumeTitle
+        fileMissing = item.fileMissing
+        destination = item.snapshot.destination
+        queueID = item.queueID
+    }
+}
+
+/// A download's context menu. Its body reads only `state` and the queues, never the item, so it is rebuilt only when
+/// what it shows changes; the item is used only when an action runs.
+private struct RowMenu: View, Equatable {
+    @Environment(DownloadManager.self) private var manager
+    let itemID: UUID
+    let state: RowMenuState
+    let item: DownloadItem
+    let requestRemoval: () -> Void
+
+    init(item: DownloadItem, requestRemoval: @escaping () -> Void) {
+        self.itemID = item.id
+        self.state = RowMenuState(item)
+        self.item = item
+        self.requestRemoval = requestRemoval
+    }
+
+    nonisolated static func == (lhs: RowMenu, rhs: RowMenu) -> Bool {
+        lhs.itemID == rhs.itemID && lhs.state == rhs.state
+    }
+
+    var body: some View {
+        if state.status == .downloading || state.status == .queued {
             Button("Pause") { manager.pause(item) }
-                .disabled(item.isMerging)               // merging can't be paused
-        } else if item.status != .completed {
-            Button(item.resumeTitle) { manager.resume(item) }   // Resume, Retry (a restored failure) or Restart
-        } else if item.fileMissing {
+                .disabled(state.isMerging)               // merging can't be paused
+        } else if state.status != .completed {
+            Button(state.resumeTitle) { manager.resume(item) }   // Resume, Retry (a restored failure) or Restart
+        } else if state.fileMissing {
             Button("Retry") { manager.retry(item) }
         }
+        if state.status != .completed {
+            Menu("Move to queue") {
+                ForEach(manager.queues) { queue in
+                    Button(queue.name) { manager.move(item, to: queue.id) }
+                        .disabled(queue.id == state.queueID)
+                }
+            }
+        }
         // A finished file that is missing offers only Retry and Remove from list.
-        if !item.fileMissing {
-            if let destination = item.snapshot.destination {
+        if !state.fileMissing {
+            if let destination = state.destination {
                 Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([destination]) }
             }
             Button("Copy Link") {
@@ -152,10 +201,10 @@ struct DownloadListView: View {
             }
         }
         Divider()
-        if item.status == .completed {
+        if state.status == .completed {
             Button("Remove from list") { manager.removeFromList(item) }   // the file stays on disk
         } else {
-            Button("Remove", role: .destructive) { pendingRemoval = item }
+            Button("Remove", role: .destructive, action: requestRemoval)
         }
     }
 }

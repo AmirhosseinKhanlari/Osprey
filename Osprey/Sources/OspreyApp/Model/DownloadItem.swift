@@ -192,6 +192,8 @@ final class DownloadItem: Identifiable {
 enum SidebarFilter: Hashable {
     case all, downloading, queued, paused, completed
     case category(Category)
+    /// One queue's downloads; `DownloadManager.title(for:)` gives its name.
+    case queue(UUID)
 
     var title: String {
         switch self {
@@ -201,6 +203,7 @@ enum SidebarFilter: Hashable {
         case .paused: "Paused"
         case .completed: "Completed"
         case .category(let category): category.rawValue
+        case .queue: "Queue"
         }
     }
 
@@ -212,6 +215,7 @@ enum SidebarFilter: Hashable {
         case .paused: "pause.circle"
         case .completed: "checkmark.circle"
         case .category(let category): category.symbol
+        case .queue(let id): id == Queue.mainID ? "bolt.circle" : "list.bullet.circle"
         }
     }
 
@@ -223,6 +227,7 @@ enum SidebarFilter: Hashable {
         case .paused: item.status == .paused || item.status == .failed
         case .completed: item.status == .completed
         case .category(let category): item.category == category
+        case .queue(let id): item.queueID == id
         }
     }
 }
