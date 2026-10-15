@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/macOS-15%2B-1A4FD6" alt="macOS 15+">
   <img src="https://img.shields.io/badge/Swift-6.4-F05138?logo=swift&logoColor=white" alt="Swift 6.4">
-  <img src="https://img.shields.io/badge/tests-538%20Swift%20%C2%B7%20179%20JS-2ea44f" alt="Tests: 538 Swift, 179 JS">
+  <img src="https://img.shields.io/badge/tests-582%20Swift%20%C2%B7%20179%20JS-2ea44f" alt="Tests: 582 Swift, 179 JS">
   <img src="https://img.shields.io/badge/License-TBD-lightgrey" alt="License: TBD">
 </p>
 
@@ -114,6 +114,15 @@ The download list is saved as you go, so quitting, a crash or a reboot doesn't l
   <img src="docs/images/resume.png" width="88%" alt="A restored list with paused downloads and a completed download whose file is missing">
 </p>
 
+## Queues and a schedule
+
+Downloads go into named queues. **Main** runs straight away: Start now and browser downloads go there. **Download later** puts a download in another queue (Later, unless you pick one), where it waits until that queue starts. **Move to queue** in a download's menu moves it between queues.
+
+- A queue starts when you choose **Start now**, once at a date and time, or daily at a time on the weekdays you pick. It can stop at a set time. A start missed while the Mac slept or Osprey was closed still counts until its window ends.
+- A queue can wait for Wi-Fi (not a phone hotspot or Low Data Mode), wait until the Mac is plugged in, and keep the Mac awake while it runs.
+- When a queue finishes by itself, it can notify you, quit Osprey, or put the Mac to sleep or shut it down. Sleep and Shut down count down 60 seconds first, with **Cancel**.
+- Each queue's status shows in the sidebar: "Running · 2 of 3", "Starts 2:00 AM", "Waiting for Wi-Fi".
+
 ## Privacy-first
 
 - **Private windows stay private.** Downloads from private windows stay with the browser unless you turn on *Also in private windows*. Private downloads are never written to the saved list or the Keychain, and their notifications never show the file name.
@@ -123,7 +132,7 @@ The download list is saved as you go, so quitting, a crash or a reboot doesn't l
 
 ## A native Mac app
 
-Settings are short and plain: appearance (System, Light or Dark) and default connections, browser integration, and media folders and tools.
+Settings are short and plain: appearance (System, Light or Dark), default connections and **Open at login** (so schedules survive a restart), browser integration, and media folders and tools.
 
 <p align="center">
   <img src="docs/images/settings.png" width="88%" alt="The General and Media settings panes">
@@ -138,6 +147,7 @@ Settings are short and plain: appearance (System, Light or Dark) and default con
 | Speed limit                      | Per download, from the sidebar                 | No                              |
 | Video and audio from web pages   | Yes, with quality, language and subtitles      | No                              |
 | Playlists                        | Yes, as a checklist                            | No                              |
+| Scheduling                       | Queues that start and stop on a timetable      | No                              |
 | Sorting                          | Categories with their own folders              | One Downloads folder            |
 | Insight while downloading        | Throughput graph, per-connection speeds        | A progress bar                  |
 
@@ -210,7 +220,7 @@ graph TD
 | `OspreyBridge` | The framed JSON protocol and socket between the app, the native-messaging host and the Safari extension, with code-signature checks on peers. |
 | `OspreyIntegration` | Capture rules and routing, the browser helper manifests, and the one-time import from the app's earlier name. |
 | `OspreyMedia` | yt-dlp and ffmpeg management, format catalogs, the picker's logic, subtitles, audio languages and playlists. |
-| `OspreyLibrary` | The saved download list, restoring it at launch, the Keychain credential vault and the quit sequence. |
+| `OspreyLibrary` | The saved download list and queues, restoring them at launch, the scheduler's rules, the Keychain credential vault and the quit sequence. |
 | `OspreyApp` | The SwiftUI app: main window, inspector, sheets, settings and capture progress windows. |
 | `OspreyHost` | The native-messaging host Chrome launches; it relays requests to the running app. |
 
@@ -219,7 +229,7 @@ The browser extensions live in `Extensions/` (`chrome`, `safari`, and `shared` c
 ## Testing
 
 ```sh
-# Swift tests (Swift Testing), about 538
+# Swift tests (Swift Testing), about 582
 cd Osprey && swift test
 
 # Extension tests (Node's built-in test runner), about 179
@@ -230,7 +240,6 @@ If the repository sits in an iCloud-synced folder, keep SwiftPM's build output o
 
 ## Roadmap
 
-- **Queues and a scheduler:** start and stop groups of downloads on a timetable.
 - **Mac integration:** Shortcuts actions, a Share extension, a Finder Quick Action and notifications.
 
 ## Acknowledgements
