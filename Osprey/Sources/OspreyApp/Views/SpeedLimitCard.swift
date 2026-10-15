@@ -43,25 +43,23 @@ struct SpeedLimitCard: View {
                     .foregroundStyle(isOn ? Theme.textPrimary : Theme.textTertiary)
                     .frame(width: 58, alignment: .trailing)
             }
-            // Both captions are laid out so the card keeps the taller one's height: it sits at the bottom
-            // of the sidebar, so a caption that wraps differently would make the whole card jump.
+            // Always two lines tall, whatever the text or the sidebar's width: the card sits at the bottom of the
+            // sidebar, so a caption whose height followed its wrapping would make the card jump, and while the window
+            // is resized it would change the sidebar's minimum height on every pass (an AppKit layout loop that aborts).
+            // The hidden two-line placeholder never wraps, so its height (and the card's) doesn't depend on the width.
             ZStack(alignment: .topLeading) {
-                caption("Per download. New connections stop at 85% of the cap.", visible: isOn)
-                caption("Off · full speed on all connections.", visible: !isOn)
+                Text(verbatim: "X\nX")
+                    .hidden()
+                    .accessibilityHidden(true)
+                Text(isOn ? "Per download. New connections stop at 85% of the cap." : "Off · full speed on all connections.")
+                    .lineLimit(2)
+                    .foregroundStyle(Theme.textSecondary)
             }
+            .font(.system(size: 11))
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(12)
         .background(Theme.cardGlass, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.hairline))
-    }
-
-    private func caption(_ text: String, visible: Bool) -> some View {
-        Text(text)
-            .font(.system(size: 11))
-            .foregroundStyle(Theme.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .opacity(visible ? 1 : 0)
-            .accessibilityHidden(!visible)
     }
 }
