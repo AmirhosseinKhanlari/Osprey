@@ -34,11 +34,16 @@ import UserNotifications
         return await SystemEvents.offMain { SystemEvents.permission(askUserIfNeeded: true) } == noErr
     }
 
-    /// Whether Shut down would fail for want of consent (denied, or never given), without ever asking. False when it
-    /// can't tell (System Events didn't start). The queue editor calls this when it opens on a queue set to Shut down.
-    func shutdownPermissionMissing() async -> Bool {
-        guard await SystemEvents.launch() else { return false }
-        return await SystemEvents.offMain { SystemEvents.permission(askUserIfNeeded: false) } != noErr
+    /// Whether Shut down may run, without ever asking. The queue editor calls this when it opens on a queue set to
+    /// Shut down.
+    func shutdownPermission() async -> ShutdownPermission {
+        guard await SystemEvents.launch() else { return .unknown }
+        switch await SystemEvents.offMain({ SystemEvents.permission(askUserIfNeeded: false) }) {
+        case noErr: return .allowed
+        case OSStatus(errAEEventWouldRequireUserConsent): return .notAsked
+        case OSStatus(errAEEventNotPermitted): return .denied
+        default: return .unknown
+        }
     }
 
     private func startCountdown(_ action: PowerAction, queueName: String) {

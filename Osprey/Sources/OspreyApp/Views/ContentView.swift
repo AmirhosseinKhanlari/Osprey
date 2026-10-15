@@ -31,9 +31,9 @@ struct ContentView: View {
                           showAdd: $showAdd, queueEditor: $queueEditor)
         .tint(Theme.accent)
         .sheet(isPresented: $showAdd, onDismiss: showQueuedPicker) { AddDownloadSheet() }
-        .sheet(item: $queueEditor) { request in QueueEditorSheet(request: request) }
-        // Downloads › New Queue… (⌥⌘N) while this window is focused.
-        .focusedSceneValue(\.newQueue, NewQueueAction { if queueEditor == nil { queueEditor = .newQueue } })
+        .sheet(item: $queueEditor, onDismiss: showQueuedPicker) { request in QueueEditorSheet(request: request) }
+        // Downloads › New Queue… (⌥⌘N) while this window is focused and shows no sheet: one sheet at a time.
+        .focusedSceneValue(\.newQueue, anySheet ? nil : NewQueueAction { queueEditor = .newQueue })
         .sheet(isPresented: $showSafariSetup, onDismiss: {
             didShowSafariSetup = true          // only once seen: a sheet lost to a launch-time race shows next launch
             showQueuedPicker()
@@ -61,14 +61,15 @@ struct ContentView: View {
         }
         // The coordinator asks for the picker (Add URL's "Download video instead", or a browser); initial:
         // covers a main window that was just opened for it. One sheet at a time: Add URL closes first (the picker
-        // replaces it); the Safari setup sheet is left for the user to finish, and the picker follows it.
+        // replaces it); Safari setup and the queue editor are left for the user to finish, and the picker follows
+        // them.
         .onChange(of: media.isPresented, initial: true) { _, presented in
             if presented {
                 if showAdd {
                     pickerAfterSheet = true
                     showAdd = false
-                } else if showSafariSetup {
-                    pickerAfterSheet = true
+                } else if showSafariSetup || queueEditor != nil {
+                    pickerAfterSheet = true             // left for the user to finish; the picker follows it
                 } else if !pickerClosing {
                     showPicker = true
                 }                                      // else: the closing sheet's onDismiss presents it
@@ -95,6 +96,11 @@ struct ContentView: View {
             }
             manager.focusRequest = nil
         }
+    }
+
+    /// Add URL, the media picker (or one closing), Safari setup or the queue editor is up.
+    private var anySheet: Bool {
+        showAdd || showPicker || pickerClosing || showSafariSetup || queueEditor != nil
     }
 
     /// Shows the picker that waited for another sheet to close.

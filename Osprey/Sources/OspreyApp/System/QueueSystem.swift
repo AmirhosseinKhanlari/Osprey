@@ -24,13 +24,24 @@ import OspreyLibrary
     func apply(_ needs: SleepNeeds)
 }
 
+/// Whether Osprey may send System Events its Shut down command.
+enum ShutdownPermission: Sendable {
+    case allowed
+    /// macOS hasn't asked the user yet.
+    case notAsked
+    /// The user said no (or turned it off in Privacy & Security › Automation).
+    case denied
+    /// Couldn't tell: System Events didn't start, or another error.
+    case unknown
+}
+
 /// Runs a queue's after-finish action.
 @MainActor protocol FinishActionPerforming: AnyObject {
     func perform(_ action: Queue.AfterFinish, queueName: String)
     /// Asks for Automation consent to System Events if not yet given; true when Shut down may run.
     func requestShutdownPermission() async -> Bool
-    /// Checks without asking; true when Shut down would fail for want of consent.
-    func shutdownPermissionMissing() async -> Bool
+    /// Checks without asking.
+    func shutdownPermission() async -> ShutdownPermission
 }
 
 /// Settings › General › Open at login.

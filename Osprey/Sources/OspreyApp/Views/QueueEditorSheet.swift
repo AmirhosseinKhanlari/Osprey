@@ -59,8 +59,8 @@ struct QueueEditorSheet: View {
     @State private var onlyOnAC: Bool
     @State private var keepAwake: Bool
     @State private var afterFinish: Queue.AfterFinish
-    /// Shut down was picked and macOS said Osprey may not control System Events.
-    @State private var shutdownDenied = false
+    /// Why Shut down can't run yet, shown in place of its line: never asked, or denied.
+    @State private var shutdownNote: ShutdownNote?
     @State private var permissionCheck: Task<Void, Never>?
     /// The clock the "start in the future" check uses, moved on while the sheet is open so the hint appears (and Save
     /// turns off) once a Once start passes.
@@ -71,7 +71,16 @@ struct QueueEditorSheet: View {
     private static let rowHeight: CGFloat = 48
     private static let spacing: CGFloat = 16
     private static let hintHeight: CGFloat = 16
-    private static let deniedNote = "Osprey needs permission to control System Events to shut down. Allow it in System Settings → Privacy & Security → Automation."
+    private enum ShutdownNote: CaseIterable {
+        case notAsked, denied
+
+        var text: String {
+            switch self {
+            case .notAsked: "Choose Shut down again to let Osprey ask for permission."
+            case .denied: "Osprey needs permission to control System Events to shut down. Allow it in System Settings → Privacy & Security → Automation."
+            }
+        }
+    }
 
     init(request: QueueEditorRequest) {
         self.request = request
@@ -169,11 +178,15 @@ struct QueueEditorSheet: View {
             if afterFinish == .shutdown { checkShutdownPermission(asking: false) }
         }
         .onDisappear { permissionCheck?.cancel() }
-        .task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
-                now = Date()
-            }
+        // Only for Once: brings the clock up to date when the start changes, then wakes once when it passes. Other
+        // schedules never redraw on a timer (a redraw closes open menus).
+        .task(id: kind == .once ? onceStart : nil) {
+            guard kind == .once else { return }
+            now = Date()
+            let wait = onceStart.timeIntervalSince(now)
+            guard wait > 0 else { return }
+            try? await Task.sleep(for: .seconds(wait + 0.5))
+            if !Task.isCancelled { now = Date() }
         }
         // VoiceOver hears a hint as it appears; the hint's line is always laid out, so it can't announce itself.
         .onChange(of: problem) { _, hint in
@@ -330,12 +343,14 @@ struct QueueEditorSheet: View {
 
     /// Every text is laid out and only the current one shows, so the group keeps the longest one's height.
     private var afterFinishDetail: some View {
-        let denied = afterFinish == .shutdown && shutdownDenied
+        let note = afterFinish == .shutdown ? shutdownNote : nil
         return ZStack(alignment: .topLeading) {
             ForEach(Queue.AfterFinish.allCases, id: \.self) { action in
-                detailText(action.detail, color: Theme.textSecondary, visible: !denied && action == afterFinish)
+                detailText(action.detail, color: Theme.textSecondary, visible: note == nil && action == afterFinish)
             }
-            detailText(Self.deniedNote, color: Theme.orange, visible: denied)
+            ForEach(ShutdownNote.allCases, id: \.self) { candidate in
+                detailText(candidate.text, color: Theme.orange, visible: note == candidate)
+            }
         }
     }
 
@@ -357,7 +372,7 @@ struct QueueEditorSheet: View {
         afterFinish = action
         permissionCheck?.cancel()
         permissionCheck = nil
-        shutdownDenied = false
+        shutdownNote = nil
         if action == .shutdown { checkShutdownPermission(asking: true) }
     }
 
@@ -366,10 +381,18 @@ struct QueueEditorSheet: View {
     private func checkShutdownPermission(asking: Bool) {
         let finishActions = manager.system.finishActions
         permissionCheck = Task {
-            let missing = asking ? !(await finishActions.requestShutdownPermission())
-                                 : await finishActions.shutdownPermissionMissing()
+            let note: ShutdownNote?
+            if asking {
+                note = await finishActions.requestShutdownPermission() ? nil : .denied
+            } else {
+                switch await finishActions.shutdownPermission() {
+                case .notAsked: note = .notAsked
+                case .denied: note = .denied
+                case .allowed, .unknown: note = nil
+                }
+            }
             guard !Task.isCancelled, afterFinish == .shutdown else { return }
-            shutdownDenied = missing
+            shutdownNote = note
         }
     }
 
