@@ -6,6 +6,9 @@ struct QueueEditorRequest: Identifiable {
     let id = UUID()
     let queue: Queue
     let isNew: Bool
+
+    /// A new queue, from the sidebar's + or Downloads › New Queue….
+    static var newQueue: QueueEditorRequest { QueueEditorRequest(queue: Queue(name: "New queue"), isNew: true) }
 }
 
 extension Queue.AfterFinish {
@@ -59,6 +62,9 @@ struct QueueEditorSheet: View {
     /// Shut down was picked and macOS said Osprey may not control System Events.
     @State private var shutdownDenied = false
     @State private var permissionCheck: Task<Void, Never>?
+    /// The clock the "start in the future" check uses, moved on while the sheet is open so the hint appears (and Save
+    /// turns off) once a Once start passes.
+    @State private var now = Date()
     @FocusState private var nameFocused: Bool
 
     private static let calendar = Calendar.autoupdatingCurrent
@@ -110,10 +116,14 @@ struct QueueEditorSheet: View {
     private var problem: String? {
         guard !isMain else { return nil }
         if trimmedName.isEmpty { return "Give the queue a name." }
+        if manager.queues.contains(where: { $0.id != request.queue.id
+            && $0.name.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(trimmedName) == .orderedSame }) {
+            return "Another queue already has this name."
+        }
         switch kind {
         case .daily where weekdays.isEmpty:
             return "Pick at least one day."
-        case .once where onceStart <= Date() && request.queue.schedule != .once(start: onceStart):
+        case .once where onceStart <= now && request.queue.schedule != .once(start: onceStart):
             // A start that already passed would never run. One saved earlier may stay, so other edits still save.
             return "Pick a start in the future."
         default:
@@ -154,8 +164,21 @@ struct QueueEditorSheet: View {
         .frame(width: 760)
         .fixedSize(horizontal: false, vertical: true)
         .tint(Theme.accent)
-        .onAppear { if request.isNew { nameFocused = true } }
+        .onAppear {
+            if request.isNew { nameFocused = true }
+            if afterFinish == .shutdown { checkShutdownPermission(asking: false) }
+        }
         .onDisappear { permissionCheck?.cancel() }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                now = Date()
+            }
+        }
+        // VoiceOver hears a hint as it appears; the hint's line is always laid out, so it can't announce itself.
+        .onChange(of: problem) { _, hint in
+            if let hint { AccessibilityNotification.Announcement(hint).post() }
+        }
     }
 
     // MARK: Columns
@@ -287,9 +310,14 @@ struct QueueEditorSheet: View {
 
     private var afterFinishMenu: some View {
         Menu {
-            ForEach(Queue.AfterFinish.allCases, id: \.self) { action in
-                Button(action.title) { pick(action) }
+            // Checkmarks on the current choice.
+            Picker("After finishing", selection: Binding(get: { afterFinish }, set: { pick($0) })) {
+                ForEach(Queue.AfterFinish.allCases, id: \.self) { action in
+                    Text(action.title).tag(action)
+                }
             }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } label: {
             ChipLabel(text: afterFinish.title)
         }
@@ -330,12 +358,18 @@ struct QueueEditorSheet: View {
         permissionCheck?.cancel()
         permissionCheck = nil
         shutdownDenied = false
-        guard action == .shutdown else { return }
+        if action == .shutdown { checkShutdownPermission(asking: true) }
+    }
+
+    /// Picking Shut down asks (if macOS hasn't asked before); opening the editor on a queue already set to Shut down
+    /// only checks, so it never brings up the prompt by itself.
+    private func checkShutdownPermission(asking: Bool) {
         let finishActions = manager.system.finishActions
         permissionCheck = Task {
-            let allowed = await finishActions.requestShutdownPermission()
+            let missing = asking ? !(await finishActions.requestShutdownPermission())
+                                 : await finishActions.shutdownPermissionMissing()
             guard !Task.isCancelled, afterFinish == .shutdown else { return }
-            shutdownDenied = !allowed
+            shutdownDenied = missing
         }
     }
 

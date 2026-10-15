@@ -1,3 +1,4 @@
+import AppKit
 import ServiceManagement
 import SwiftUI
 
@@ -30,6 +31,10 @@ struct GeneralPane: View {
                 .disabled(!CaptureNotifier.isAvailable)       // a bare `swift run` build can't be a login item
         }
         .onAppear(perform: readLoginItem)
+        // The user may have allowed or removed Osprey in System Settings meanwhile.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            readLoginItem()
+        }
         // Last in the pane, so these notes never push anything else down.
         if needsApproval {
             HStack(spacing: 8) {

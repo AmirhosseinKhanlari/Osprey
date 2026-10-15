@@ -36,6 +36,8 @@ struct OspreyApp: App {
                     .keyboardShortcut("p", modifiers: [.command, .option])
                 Button("Resume All") { appDelegate.manager.resumeAll() }
                     .keyboardShortcut("r", modifiers: [.command, .option])
+                Divider()
+                NewQueueCommand()
             }
         }
 

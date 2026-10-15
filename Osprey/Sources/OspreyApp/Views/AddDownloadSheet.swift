@@ -119,9 +119,14 @@ struct AddDownloadSheet: View {
         let chosen = startNow ? manager.queue(Queue.mainID) : manager.queue(laterQueue ?? manager.defaultLaterQueueID)
         let name = chosen?.name ?? "Main"
         return Menu {
-            ForEach(manager.queues) { queue in
-                Button(queue.name) { laterQueue = queue.id }
+            // Checkmark on the current choice.
+            Picker("Queue", selection: Binding(get: { chosen?.id ?? Queue.mainID }, set: { laterQueue = $0 })) {
+                ForEach(manager.queues) { queue in
+                    Text(queue.name).tag(queue.id)
+                }
             }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } label: {
             ChipLabel(text: name, maxTextWidth: 220)
         }

@@ -29,6 +29,8 @@ import OspreyLibrary
     func perform(_ action: Queue.AfterFinish, queueName: String)
     /// Asks for Automation consent to System Events if not yet given; true when Shut down may run.
     func requestShutdownPermission() async -> Bool
+    /// Checks without asking; true when Shut down would fail for want of consent.
+    func shutdownPermissionMissing() async -> Bool
 }
 
 /// Settings › General › Open at login.

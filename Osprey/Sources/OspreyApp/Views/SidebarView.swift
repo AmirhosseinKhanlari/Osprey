@@ -93,7 +93,7 @@ struct SidebarView: View {
             SectionLabel("Queues")
             Spacer(minLength: 4)
             Button {
-                queueEditor = QueueEditorRequest(queue: Queue(name: "New queue"), isNew: true)
+                queueEditor = .newQueue
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 11, weight: .bold))
@@ -139,7 +139,9 @@ struct SidebarView: View {
         let item = SidebarFilter.queue(queue.id)
         let selected = filter == item
         let status = manager.statusLine(for: queue)
-        let running = manager.items.contains { $0.queueID == queue.id && $0.status == .downloading }
+        let mine = manager.items.filter { $0.queueID == queue.id }
+        let running = mine.contains { $0.status == .downloading }
+        let unfinished = mine.filter { $0.status != .completed }.count
         return Button { filter = item } label: {
             HStack(spacing: 10) {
                 Image(systemName: item.symbol)
@@ -157,7 +159,8 @@ struct SidebarView: View {
                 }
                 .lineLimit(1)
                 Spacer(minLength: 4)
-                Text("\(manager.count(for: item))")
+                // Unfinished downloads only: finished ones stay listed under the queue but aren't its work.
+                Text("\(unfinished)")
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(Theme.textTertiary)
@@ -170,7 +173,10 @@ struct SidebarView: View {
         .buttonStyle(.plain)
         .focusable(false)
         .accessibilityLabel("\(queue.name), \(status)")
+        .accessibilityValue(unfinished == 1 ? "1 download" : "\(unfinished) downloads")
         .accessibilityAddTraits(selected ? .isSelected : [])
+        .modifier(QueueRowActions(queue: queue, edit: { queueEditor = QueueEditorRequest(queue: queue, isNew: false) },
+                                  delete: { pendingDeletion = queue }))
         .contextMenu { menu(for: queue) }
     }
 
@@ -194,6 +200,28 @@ struct SidebarView: View {
                 .disabled(index >= manager.queues.count - 1)
             Divider()
             Button("Delete…", role: .destructive) { pendingDeletion = queue }
+        }
+    }
+}
+
+/// The context menu's actions as named accessibility actions, so a queue can be run and managed from the keyboard
+/// (VoiceOver's actions menu): Start now or Stop, Edit, and Delete. Main has only Edit.
+private struct QueueRowActions: ViewModifier {
+    @Environment(DownloadManager.self) private var manager
+    let queue: Queue
+    let edit: () -> Void
+    let delete: () -> Void
+
+    func body(content: Content) -> some View {
+        if queue.isMain {
+            content.accessibilityAction(named: "Edit", edit)
+        } else {
+            content
+                .accessibilityAction(named: queue.isActive ? "Stop" : "Start now") {
+                    if queue.isActive { manager.stop(queue: queue.id) } else { manager.start(queue: queue.id) }
+                }
+                .accessibilityAction(named: "Edit", edit)
+                .accessibilityAction(named: "Delete", delete)
         }
     }
 }

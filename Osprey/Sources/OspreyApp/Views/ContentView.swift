@@ -32,6 +32,8 @@ struct ContentView: View {
         .tint(Theme.accent)
         .sheet(isPresented: $showAdd, onDismiss: showQueuedPicker) { AddDownloadSheet() }
         .sheet(item: $queueEditor) { request in QueueEditorSheet(request: request) }
+        // Downloads › New Queue… (⌥⌘N) while this window is focused.
+        .focusedSceneValue(\.newQueue, NewQueueAction { if queueEditor == nil { queueEditor = .newQueue } })
         .sheet(isPresented: $showSafariSetup, onDismiss: {
             didShowSafariSetup = true          // only once seen: a sheet lost to a launch-time race shows next launch
             showQueuedPicker()
@@ -292,8 +294,24 @@ struct FocusSearchAction {
     let focus: () -> Void
 }
 
+/// Downloads › New Queue… (⌥⌘N): opens the queue editor for a new queue. Disabled while no main window is focused.
+struct NewQueueCommand: View {
+    @FocusedValue(\.newQueue) private var newQueue
+
+    var body: some View {
+        Button("New Queue…") { newQueue?.open() }
+            .keyboardShortcut("n", modifiers: [.command, .option])
+            .disabled(newQueue == nil)
+    }
+}
+
+struct NewQueueAction {
+    let open: () -> Void
+}
+
 extension FocusedValues {
     @Entry var focusSearch: FocusSearchAction?
+    @Entry var newQueue: NewQueueAction?
 }
 
 /// The toolbar's search capsule (macOS 26 and later): it filters as you type, Edit › Find (⌘F) focuses it, Esc or the
