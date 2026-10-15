@@ -30,6 +30,16 @@ struct DownloadListView: View {
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .surfaceCard()
+        // The whole list takes keyboard focus, even when empty, and is where focus starts when the window opens.
+        // With macOS keyboard navigation on, focus would otherwise land on the first button (the sidebar toggle)
+        // and show its focus ring as if the button were stuck.
+        .focusable()
+        .focused($focused)
+        .focusEffectDisabled()
+        .defaultFocus($focused, true)
+        .onKeyPress(.upArrow) { move(by: -1) }
+        .onKeyPress(.downArrow) { move(by: 1) }
+        .onKeyPress(keys: [.delete, .deleteForward]) { _ in requestRemovalOfSelection() }
         .confirmationDialog(
             "Remove “\(pendingRemoval?.snapshot.fileName ?? "")”?",
             isPresented: Binding(get: { pendingRemoval != nil }, set: { if !$0 { pendingRemoval = nil } }),
@@ -70,12 +80,6 @@ struct DownloadListView: View {
                 }
                 .padding(6)
             }
-            .focusable()
-            .focused($focused)
-            .focusEffectDisabled()
-            .onKeyPress(.upArrow) { move(by: -1) }
-            .onKeyPress(.downArrow) { move(by: 1) }
-            .onKeyPress(keys: [.delete, .deleteForward]) { _ in requestRemovalOfSelection() }
             .onChange(of: selection) { _, id in
                 guard let id else { return }
                 withAnimation(.easeOut(duration: 0.15)) { proxy.scrollTo(id) }
