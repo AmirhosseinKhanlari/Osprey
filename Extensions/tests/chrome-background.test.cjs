@@ -41,6 +41,7 @@ function load(opts = {}) {
     },
     downloads: {
       onCreated: event("onCreated"),
+      onChanged: event("onChanged"),
       async pause(id) {
         rec("pause", id);
         if (opts.pauseFails) throw new Error("gone");
@@ -51,7 +52,7 @@ function load(opts = {}) {
       async resume(id) { rec("resume", id); },
       async cancel(id) { rec("cancel", id); },
       async erase(q) { rec("erase", q.id); },
-      async search(q) { rec("search", q.id); return downloadsState[q.id] ? [{ id: q.id, ...downloadsState[q.id] }] : []; },
+      async search(q) { rec("search", q.id); return downloadsState[q.id] ? [{ id: q.id, ...(opts.items || {})[q.id], ...downloadsState[q.id] }] : []; },
       async download(o) {
         rec("download", o.url);
         if (opts.downloadFails) throw new Error("blocked");
@@ -165,6 +166,46 @@ test("cookie lookup throwing does not strand the paused download", async () => {
   const env = load({ native: declinedReply, cookies: () => { throw new Error("x"); } });
   await env.listeners.onCreated(zipItem());
   assert.equal(env.count("resume"), 1);
+});
+
+test("a link that redirects to a nameless URL is captured with the link's name", async () => {
+  const env = load({ native: takenReply });
+  await env.listeners.onCreated(zipItem({ url: "https://host.example/d/abc/My%20File.zip", finalUrl: "https://bucket.example/zF1?sig=1",
+                                          filename: "", mime: "application/octet-stream" }));
+  assert.equal(env.count("pause"), 1);
+  const capture = env.calls.find((c) => c[0] === "native" && c[1] === "capture")[2];
+  assert.equal(capture.url, "https://bucket.example/zF1?sig=1");
+  assert.equal(capture.filename, "My File.zip");
+});
+
+test("a download is captured once Chrome learns its name", async () => {
+  const env = load({
+    native: takenReply,
+    downloads: { 7: { state: "in_progress", paused: false } },
+    items: { 7: { url: "https://example.com/get?id=1", finalUrl: "https://example.com/get?id=1", filename: "/dl/report.zip",
+                  incognito: false, mime: "application/octet-stream" } },
+  });
+  await env.listeners.onCreated(zipItem({ url: "https://example.com/get?id=1", filename: "", mime: "application/octet-stream" }));
+  assert.equal(env.count("pause"), 0);                     // nothing to go on yet
+  await env.listeners.onChanged({ id: 7, filename: { current: "/dl/report.zip" } });
+  await tick();
+  assert.equal(env.count("pause"), 1);
+  assert.equal(env.count("cancel"), 1);                    // Osprey took it
+  await env.listeners.onChanged({ id: 7, filename: { current: "/dl/report.zip" } });
+  await tick();
+  assert.equal(env.count("pause"), 1, "considered once");
+});
+
+test("a named download that doesn't match is left alone", async () => {
+  const env = load({
+    native: takenReply,
+    downloads: { 7: { state: "in_progress", paused: false } },
+    items: { 7: { url: "https://example.com/get?id=1", filename: "/dl/notes.txt", incognito: false } },
+  });
+  await env.listeners.onCreated(zipItem({ url: "https://example.com/get?id=1", filename: "" }));
+  await env.listeners.onChanged({ id: 7, filename: { current: "/dl/notes.txt" } });
+  await tick();
+  assert.equal(env.count("pause"), 0);
 });
 
 test("non-matching extension is not paused", async () => {

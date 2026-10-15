@@ -28,8 +28,35 @@ test("shouldCaptureDownload applies every skip rule", () => {
   assert.ok(!R.shouldCaptureDownload({ ...item, incognito: true }, rules, 1000, 0));
   assert.ok(R.shouldCaptureDownload({ ...item, incognito: true }, { ...rules, captureInPrivate: true }, 1000, 0));
   assert.ok(!R.shouldCaptureDownload(item, rules, 1000, 2000), "within the Option bypass window");
-  assert.ok(!R.shouldCaptureDownload({ ...item, finalUrl: "https://x.test/page.html" }, rules, 1000, 0));
+  assert.ok(!R.shouldCaptureDownload({ ...item, url: "https://x.test/page.html", finalUrl: "https://x.test/page.html" }, rules, 1000, 0));
   assert.ok(R.shouldCaptureDownload({ ...item, finalUrl: "https://x.test/get?id=1", filename: "/tmp/a.dmg" }, rules, 1000, 0));
+});
+
+test("shouldCaptureDownload also reads the link that redirected to a nameless URL", () => {
+  // vikingfile.com/d/…/PPSA07631.7z → a storage URL without a name, served as application/octet-stream
+  const item = { url: "https://host.test/d/abc/file.zip", finalUrl: "https://bucket.test/zFgvoua8v4?sig=1",
+                 filename: "", mime: "application/octet-stream", incognito: false };
+  assert.ok(R.shouldCaptureDownload(item, rules, 1000, 0));
+  assert.ok(!R.shouldCaptureDownload({ ...item, url: "https://host.test/d/abc" }, rules, 1000, 0));
+});
+
+test("a storage URL that names its file in response-content-disposition counts by that name", () => {
+  const signed = "https://bucket.test/zFgvoua8v4?response-content-disposition=attachment%3Bfilename%3DPPSA07631.zip&X-Amz-Expires=172800";
+  assert.equal(R.dispositionName(signed), "PPSA07631.zip");
+  assert.equal(R.dispositionName("https://b.test/x?response-content-disposition=attachment%3B%20filename%3D%22My%20File.zip%22"), "My File.zip");
+  assert.equal(R.dispositionName("https://b.test/x?response-content-disposition=attachment%3B%20filename*%3DUTF-8%27%27r%C3%A9sum%C3%A9.zip"), "résumé.zip");
+  assert.equal(R.dispositionName("https://b.test/x?a=1"), "");
+  assert.equal(R.dispositionName("https://b.test/x?response-content-disposition=attachment%3Bfilename%3D..%2F..%2Fevil.zip"), "evil.zip");
+  const item = { url: signed, finalUrl: signed, filename: "", mime: "application/octet-stream", incognito: false };
+  assert.ok(R.shouldCaptureDownload(item, rules, 1000, 0));
+  assert.equal(R.suggestedFilename(item), "PPSA07631.zip");
+  assert.ok(R.shouldCaptureLink({ href: signed, hasDownloadAttribute: false }, rules, false, false));
+});
+
+test("suggestedFilename prefers Chrome's name, then the link's own", () => {
+  assert.equal(R.suggestedFilename({ filename: "/dl/a.zip", url: "https://x.test/b.zip" }), "/dl/a.zip");
+  assert.equal(R.suggestedFilename({ filename: "", url: "https://x.test/d/My%20File.7z", finalUrl: "https://cdn.test/x1" }), "My File.7z");
+  assert.equal(R.suggestedFilename({ filename: "", url: "https://x.test/download", finalUrl: "https://cdn.test/x1" }), "");
 });
 
 test("shouldCaptureLink handles the download attribute and Option", () => {

@@ -201,13 +201,41 @@ async function stateAfterPause(id) {
   }
 }
 
+// Downloads Chrome hadn't named yet when they started: looked at again once their name is known (onChanged).
+const awaitingName = new Set();
+
 chrome.downloads.onCreated.addListener(async (item) => {
   if (item.byExtensionId === chrome.runtime.id || selfStarted.has(item.id)) return;
   await ready;
   if (!R.shouldCaptureDownload(item, rules, Date.now(), bypassUntil)) {
+    // Nothing matched yet. A server can name the file only in its response (Content-Disposition): wait for that.
+    if (!item.filename && (!item.state || item.state === "in_progress")) awaitingName.add(item.id);
     refreshQuietly(false);
     return;
   }
+  await takeOver(item);
+});
+
+chrome.downloads.onChanged.addListener(async (delta) => {
+  if (!awaitingName.has(delta.id)) return;
+  if (delta.state && delta.state.current !== "in_progress") {
+    awaitingName.delete(delta.id); // finished or interrupted before it was named
+    return;
+  }
+  if (!delta.filename || !delta.filename.current) return;
+  awaitingName.delete(delta.id); // looked at once
+  let item;
+  try {
+    [item] = await chrome.downloads.search({ id: delta.id });
+  } catch (_) {
+    return;
+  }
+  if (!item || !R.shouldCaptureDownload(item, rules, Date.now(), bypassUntil)) return;
+  await takeOver(item);
+});
+
+// Pauses `item`, offers it to Osprey, and cancels it when Osprey took it, else resumes it.
+async function takeOver(item) {
   if (item.state && item.state !== "in_progress") return; // finished before we saw it
   try {
     await chrome.downloads.pause(item.id);
@@ -235,7 +263,7 @@ chrome.downloads.onCreated.addListener(async (item) => {
     taken = await capture({
       url,
       referrer: item.referrer,
-      filename: item.filename,
+      filename: R.suggestedFilename(item),
       mime: item.mime,
       size: item.fileSize > 0 ? item.fileSize : item.totalBytes,
       cookies: await cookiesFor(url, item.incognito, undefined),
@@ -260,7 +288,7 @@ chrome.downloads.onCreated.addListener(async (item) => {
     persistPending();
   }
   refreshQuietly(false);
-});
+}
 
 chrome.runtime.onInstalled.addListener(async () => {
   try {

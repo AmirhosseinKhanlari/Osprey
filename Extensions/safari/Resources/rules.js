@@ -130,9 +130,60 @@
     if (!isHttpUrl(url)) return false;
     if (item.incognito && !rules.captureInPrivate) return false;
     if (now < bypassUntil) return false;
-    // Any listed extension is enough: a zip served as "download.php" or "page.html" still counts by its MIME type.
-    return [extensionOf(item.filename), extensionOf(url), extensionForMime(item.mime)]
+    // Any listed extension is enough: a zip served as "download.php" or "page.html" still counts by its MIME type,
+    // and a link to "file.7z" that redirects to a nameless storage URL still counts by the link it started from.
+    return [extensionOf(item.filename), extensionOf(url), extensionOf(item.url), extensionOf(dispositionName(url)),
+            extensionOf(dispositionName(item.url)), extensionForMime(item.mime)]
       .some((ext) => matchesExtension(ext, rules.extensions));
+  }
+
+  // The file name a signed storage URL (S3 and alike) asks its server to send, from its
+  // `response-content-disposition` query parameter, e.g. `?response-content-disposition=attachment;filename=a.7z`.
+  // `filename*=UTF-8''…` wins over `filename=`. Only the last path component is kept. "" when there is none.
+  function dispositionName(url) {
+    let value = null;
+    try {
+      for (const [key, v] of new URL(url).searchParams) {
+        if (key.toLowerCase() === "response-content-disposition") value = v;
+      }
+    } catch (_) {
+      return "";
+    }
+    if (!value) return "";
+    let name = "";
+    const extended = /filename\*\s*=\s*([^;]+)/i.exec(value);
+    if (extended) {
+      const raw = extended[1].trim().replace(/^"|"$/g, "");
+      const quote = raw.indexOf("''");
+      try {
+        name = decodeURIComponent(quote >= 0 ? raw.slice(quote + 2) : raw);
+      } catch (_) {
+        name = "";
+      }
+    }
+    if (!name) {
+      const plain = /filename\s*=\s*("([^"]*)"|[^;]+)/i.exec(value);
+      if (plain) name = (plain[2] !== undefined ? plain[2] : plain[1]).trim();
+    }
+    return (name.split(/[\\/]/).pop() || "").trim();
+  }
+
+  // The name to hand Osprey with a download: Chrome's own once it knows it, else one a storage URL names in its query,
+  // else the last part of the link the download started from when that has an extension (it may redirect to a URL
+  // without a name), else "".
+  function suggestedFilename(item) {
+    if (item.filename) return item.filename;
+    const named = dispositionName(item.finalUrl || item.url) || dispositionName(item.url);
+    if (named) return named;
+    if (!extensionOf(item.url)) return "";
+    const pathname = urlPathname(String(item.url));
+    let last = (pathname === null ? String(item.url) : pathname).split("/").pop() || "";
+    try {
+      last = decodeURIComponent(last);
+    } catch (_) {
+      // keep the raw name
+    }
+    return last;
   }
 
   function shouldCaptureLink(link, rules, altKey, isPrivate) {
@@ -140,7 +191,7 @@
     if (!isHttpUrl(link.href)) return false;
     if (isPrivate && !rules.captureInPrivate) return false;
     if (link.hasDownloadAttribute) return true;
-    return matchesExtension(extensionOf(link.href), rules.extensions);
+    return [extensionOf(link.href), extensionOf(dispositionName(link.href))].some((ext) => matchesExtension(ext, rules.extensions));
   }
 
   function captureMessage(fields) {
@@ -207,7 +258,8 @@
 
   return {
     PROTOCOL_VERSION, HOST_NAME, BYPASS_WINDOW_MS, HELLO_TIMEOUT_MS, CAPTURE_TIMEOUT_MS, DEFAULT_RULES, VIDEO_MIN_WIDTH, VIDEO_MIN_HEIGHT,
-    MIME_EXTENSIONS, extensionOf, extensionForMime, matchesExtension, isHttpUrl, shouldCaptureDownload, shouldCaptureLink,
+    MIME_EXTENSIONS, extensionOf, extensionForMime, matchesExtension, isHttpUrl, shouldCaptureDownload, suggestedFilename,
+    dispositionName, shouldCaptureLink,
     captureMessage, mediaMessage, shouldOfferVideoButton, helloMessage, wasTaken, cookieHeader, rulesFromHello,
     buttonTargetUrl,
   };
