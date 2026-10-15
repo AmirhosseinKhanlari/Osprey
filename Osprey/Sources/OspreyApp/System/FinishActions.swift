@@ -61,8 +61,12 @@ import UserNotifications
         }
     }
 
+    /// After the countdown nobody may be there, so this never asks: a consent prompt answered hours later would shut
+    /// the Mac down with no warning. Without consent given earlier (in the queue editor) it only notifies.
     private func shutDown() async {
-        guard await requestShutdownPermission() else {
+        var allowed = await SystemEvents.launch()
+        if allowed { allowed = await SystemEvents.offMain({ SystemEvents.permission(askUserIfNeeded: false) }) == noErr }
+        guard allowed else {
             notify(title: "Osprey couldn’t shut down your Mac",
                    body: "Allow Osprey to control System Events in Privacy & Security → Automation.")
             return
