@@ -45,7 +45,7 @@ struct SettingsView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            sidebar
+            SettingsSidebar(selection: $pane)
             VStack(alignment: .leading, spacing: 0) {
                 // The pane's title sits in the title bar band, level with the window controls.
                 // An opaque header drawn above the scroll view: scrolled content passes under it
@@ -97,10 +97,18 @@ struct SettingsView: View {
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .tint(Theme.accent)
     }
+}
 
-    private var sidebar: some View {
+/// The pane list. It reads and writes the selection only through `selection`, and each row gets its
+/// selected state as a value: a `ForEach` row closure that reads the selection itself is not run
+/// again when the selection changes, so its highlight would stay on an earlier pane.
+private struct SettingsSidebar: View {
+    @Binding var selection: SettingsPane
+
+    var body: some View {
+        let current = selection
         VStack(alignment: .leading, spacing: 2) {
-            ForEach(SettingsPane.allCases) { row($0) }
+            ForEach(SettingsPane.allCases) { row($0, isSelected: $0 == current) }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 10)
@@ -119,14 +127,13 @@ struct SettingsView: View {
 
     private func move(by offset: Int) -> KeyPress.Result {
         let panes = SettingsPane.allCases
-        let index = panes.firstIndex(of: pane) ?? 0
-        pane = panes[min(max(index + offset, 0), panes.count - 1)]
+        let index = panes.firstIndex(of: selection) ?? 0
+        selection = panes[min(max(index + offset, 0), panes.count - 1)]
         return .handled
     }
 
-    private func row(_ item: SettingsPane) -> some View {
-        let selected = item == pane
-        return Button { pane = item } label: {
+    private func row(_ item: SettingsPane, isSelected selected: Bool) -> some View {
+        Button { selection = item } label: {
             HStack(spacing: 10) {
                 Image(systemName: item.symbol)
                     .font(.system(size: 12, weight: .semibold))
