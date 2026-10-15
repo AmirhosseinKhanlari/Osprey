@@ -1,4 +1,3 @@
-import Darwin
 import Foundation
 import OspreyEngine
 import os
@@ -59,7 +58,7 @@ public actor DownloadLibrary {
         self.folder = folder
         self.debounce = debounce
         self.now = now
-        Self.removeStaleTemporaryFiles(in: folder)
+        AtomicFile.removeStaleTemporaryFiles(in: folder, for: Self.fileName)
         let read = Self.read(folder: folder, now: now())
         loaded = read
         records = Dictionary(read.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -107,11 +106,11 @@ public actor DownloadLibrary {
     private func write() {
         guard dirty else { return }
         do {
-            try Self.prepareFolder(folder)
+            try AtomicFile.prepareFolder(folder)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.sortedKeys]
             let data = try encoder.encode(StoredList(version: Self.currentVersion, items: Self.newestFirst(Array(records.values))))
-            try Self.writeAtomically(data, to: fileURL)
+            try AtomicFile.write(data, to: fileURL)
             dirty = false
             writeCount += 1
             failedWrites = 0
@@ -122,42 +121,6 @@ public actor DownloadLibrary {
             // schedules a write as usual.
             guard failedWrites <= Self.maxWriteRetries else { return }
             schedule(after: debounce * (1 << min(failedWrites, 6)))
-        }
-    }
-
-    /// `.library.json.<uuid>.tmp` files of writes a crash interrupted.
-    private static func removeStaleTemporaryFiles(in folder: URL) {
-        let fm = FileManager.default
-        let prefix = ".\(fileName).", suffix = ".tmp"
-        for name in (try? fm.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []
-        where name.hasPrefix(prefix) && name.hasSuffix(suffix) {
-            try? fm.removeItem(at: folder.appending(path: name))
-        }
-    }
-
-    private static func prepareFolder(_ folder: URL) throws {
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true,
-                                                attributes: [.posixPermissions: 0o700])
-        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: folder.path(percentEncoded: false))
-    }
-
-    /// A temporary file created 0600 next to `file`, written and synced, then renamed over `file`.
-    private static func writeAtomically(_ data: Data, to file: URL) throws {
-        let temp = file.deletingLastPathComponent().appending(path: ".\(file.lastPathComponent).\(UUID().uuidString).tmp")
-        let tempPath = temp.path(percentEncoded: false)
-        let fd = open(tempPath, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
-        guard fd >= 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
-        let handle = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
-        do {
-            try handle.write(contentsOf: data)
-            try handle.synchronize()
-            try handle.close()
-            guard rename(tempPath, file.path(percentEncoded: false)) == 0 else {
-                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-            }
-        } catch {
-            unlink(tempPath)
-            throw error
         }
     }
 
@@ -195,22 +158,12 @@ public actor DownloadLibrary {
     }
 
     private static func moveAside(_ file: URL, label: String, now: Date) {
-        let target = FileNaming.uniqueURL(in: file.deletingLastPathComponent(), name: "library.\(label)-\(stamp(now)).json")
         do {
-            try FileManager.default.moveItem(at: file, to: target)
+            let target = try AtomicFile.moveAside(file, label: label, now: now)
             log.error("Moved an unreadable download list aside: \(target.lastPathComponent, privacy: .public)")
         } catch {
             log.error("Couldn't move an unreadable download list aside: \(error.localizedDescription, privacy: .public)")
         }
-    }
-
-    /// ISO 8601 basic UTC: `20261014T120000Z`.
-    static func stamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(identifier: "UTC")
-        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
-        return formatter.string(from: date)
     }
 }
 
