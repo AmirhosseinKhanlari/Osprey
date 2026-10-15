@@ -3,6 +3,8 @@ import OspreyLibrary
 
 /// The network as "Only on Wi-Fi" reads it.
 @MainActor protocol NetworkConditions: AnyObject {
+    /// False until the first network path arrives; the network's state isn't known before then.
+    var hasPath: Bool { get }
     /// A phone hotspot (or another network the system marks expensive).
     var isExpensive: Bool { get }
     /// Low Data Mode.
@@ -25,6 +27,8 @@ import OspreyLibrary
 /// Runs a queue's after-finish action.
 @MainActor protocol FinishActionPerforming: AnyObject {
     func perform(_ action: Queue.AfterFinish, queueName: String)
+    /// Asks for Automation consent to System Events if not yet given; true when Shut down may run.
+    func requestShutdownPermission() async -> Bool
 }
 
 /// Settings › General › Open at login.
@@ -54,9 +58,10 @@ import OspreyLibrary
         QueueSystem(network: NetworkMonitor(), power: PowerMonitor(), sleepGuard: SleepGuard(), finishActions: FinishActions())
     }
 
-    /// The conditions now, with the Debug build's overrides applied.
+    /// The conditions now, with the Debug build's overrides applied. Before the first network path, the network counts
+    /// as expensive, so a Wi-Fi-only queue holds rather than starting on a network that may be a hotspot.
     var conditions: QueueConditions {
-        DebugOverrides.apply(to: QueueConditions(isExpensive: network.isExpensive, isConstrained: network.isConstrained,
-                                                 onBattery: power.onBattery))
+        DebugOverrides.apply(to: QueueConditions(isExpensive: network.isExpensive || !network.hasPath,
+                                                 isConstrained: network.isConstrained, onBattery: power.onBattery))
     }
 }

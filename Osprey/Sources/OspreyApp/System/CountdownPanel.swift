@@ -1,15 +1,25 @@
 import AppKit
+import IOKit.pwr_mgt
 import Observation
 import SwiftUI
 
 /// "Mac will sleep in 60 s · Cancel": a small floating panel in the top-right corner that never activates the app.
-/// When the count reaches zero it closes and calls `onFinish`; Cancel (or Escape) closes it and calls `onCancel`.
+/// When the count reaches zero it closes and calls `onFinish`, once; Cancel closes it and calls `onCancel`. It never
+/// takes keyboard focus from the app the user is in, so it has no Escape shortcut: keys keep going to that app.
+///
+/// The count runs on `SuspendingClock`, which stands still while the Mac sleeps and ignores wall-clock changes, and it
+/// restarts from 60 s on every wake, so the action never runs straight after a wake or a clock jump. While the panel
+/// shows, it holds an idle-sleep assertion so idle sleep can't interrupt the count.
 @MainActor final class CountdownPanel {
     static let seconds = 60
 
     private let model: CountdownModel
     private let panel: FloatingPanel
     private var timer: Task<Void, Never>?
+    private var deadline = SuspendingClock.now
+    private var awake: PowerAssertion?
+    private var wakeObserver: (any NSObjectProtocol)?
+    private var ended = false
     private let onFinish: () -> Void
     private let onCancel: () -> Void
 
@@ -21,43 +31,70 @@ import SwiftUI
         let hosting = NSHostingView(rootView: CountdownView(model: model) { [weak self] in self?.cancel() })
         hosting.sizingOptions = [.minSize, .maxSize]
         panel.contentView = hosting
-        panel.onEscape = { [weak self] in self?.cancel() }
     }
 
+    /// Shows the panel and starts the count. Only the first call does anything.
     func show() {
+        guard timer == nil, !ended else { return }
         if let visible = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame {
             panel.layoutIfNeeded()
             let size = panel.frame.size
             panel.setFrameOrigin(NSPoint(x: visible.maxX - size.width - 14, y: visible.maxY - size.height - 14))
         }
         panel.orderFrontRegardless()
-        let deadline = Date().addingTimeInterval(TimeInterval(Self.seconds))
+        awake = PowerAssertion(type: kIOPMAssertionTypePreventUserIdleSystemSleep,
+                               reason: "Osprey is counting down to \(model.action.verb)")
+        restart()
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification,
+                                                                         object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.restart() }
+        }
         timer = Task { [weak self] in
             while !Task.isCancelled {
-                let left = Int(deadline.timeIntervalSinceNow.rounded(.up))
-                guard let self else { return }
-                if left <= 0 {
-                    self.finish()
-                    return
-                }
-                if self.model.remaining != left { self.model.remaining = left }
-                try? await Task.sleep(for: .milliseconds(250))
+                guard let self, self.tick() else { return }
+                try? await Task.sleep(for: .milliseconds(250), clock: .suspending)
             }
         }
     }
 
     func close() {
+        ended = true
         timer?.cancel()
         timer = nil
+        awake = nil
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
+        wakeObserver = nil
         panel.close()
     }
 
+    /// The full count again, from now.
+    private func restart() {
+        guard !ended else { return }
+        deadline = SuspendingClock.now.advanced(by: .seconds(Self.seconds))
+        model.remaining = Self.seconds
+    }
+
+    /// Updates the shown seconds; finishes at zero. False once the count is over.
+    private func tick() -> Bool {
+        guard !ended else { return false }
+        let left = (deadline - SuspendingClock.now).components
+        let seconds = Int(left.seconds) + (left.attoseconds > 0 ? 1 : 0)
+        if seconds <= 0 {
+            finish()
+            return false
+        }
+        if model.remaining != seconds { model.remaining = seconds }
+        return true
+    }
+
     private func cancel() {
+        guard !ended else { return }
         close()
         onCancel()
     }
 
     private func finish() {
+        guard !ended else { return }
         close()
         onFinish()
     }
@@ -98,7 +135,6 @@ private struct CountdownView: View {
             Spacer(minLength: 8)
             Button("Cancel", action: cancel)
                 .buttonStyle(.capsule(.secondary, height: 30, fontSize: 12.5))
-                .keyboardShortcut(.cancelAction)
         }
         .padding(.horizontal, 16)
         .frame(width: 340, height: 72)
@@ -110,8 +146,6 @@ private struct CountdownView: View {
 
 /// A borderless floating panel that never activates the app; the SwiftUI content draws the card.
 private final class FloatingPanel: NSPanel {
-    var onEscape: (() -> Void)?
-
     init(size: CGSize) {
         super.init(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: false)
@@ -129,5 +163,4 @@ private final class FloatingPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
-    override func cancelOperation(_ sender: Any?) { onEscape?() }
 }

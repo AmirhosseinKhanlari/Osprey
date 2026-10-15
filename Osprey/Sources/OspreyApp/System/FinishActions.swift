@@ -1,12 +1,13 @@
 import AppKit
+import CoreServices
 import OspreyLibrary
 import UserNotifications
 
 /// A queue's after-finish action:
 /// - Notify: a notification.
 /// - Quit: quits Osprey (the usual quit: downloads pause and the list is saved).
-/// - Sleep, Shut down: a 60 s countdown panel with Cancel first. Sleep runs `pmset sleepnow`; Shut down asks System
-///   Events over Apple Events, which asks the user for Automation consent once. A Debug build only logs them.
+/// - Sleep, Shut down: a 60 s countdown panel with Cancel first. Sleep runs `pmset sleepnow`; Shut down sends System
+///   Events its Shut down command, which needs the user's Automation consent once. A Debug build only logs them.
 @MainActor final class FinishActions: FinishActionPerforming {
     private var countdown: CountdownPanel?
 
@@ -23,6 +24,14 @@ import UserNotifications
         case .shutdown:
             startCountdown(.shutDown, queueName: queueName)
         }
+    }
+
+    /// Asks the user, if they haven't answered yet, to let Osprey control System Events, and says whether it may. The
+    /// queue editor calls this when Shut down is chosen, so the question comes while the user is there. The consent
+    /// prompt blocks its thread until answered, so it runs off the main thread.
+    func requestShutdownPermission() async -> Bool {
+        guard await SystemEvents.launch() else { return false }
+        return await SystemEvents.offMain { SystemEvents.permission(askUserIfNeeded: true) } == noErr
     }
 
     private func startCountdown(_ action: PowerAction, queueName: String) {
@@ -48,23 +57,91 @@ import UserNotifications
             process.arguments = ["sleepnow"]
             do { try process.run() } catch { NSLog("Osprey: couldn't put the Mac to sleep: %@", error.localizedDescription) }
         case .shutDown:
-            var error: NSDictionary?
-            NSAppleScript(source: #"tell application "System Events" to shut down"#)?.executeAndReturnError(&error)
-            if error != nil {
-                notify(title: "Osprey couldn’t shut down your Mac",
-                       body: "Allow Osprey to control System Events in System Settings › Privacy & Security › Automation.")
-            }
+            Task { await shutDown() }
         }
     }
 
+    private func shutDown() async {
+        guard await requestShutdownPermission() else {
+            notify(title: "Osprey couldn’t shut down your Mac",
+                   body: "Allow Osprey to control System Events in Privacy & Security → Automation.")
+            return
+        }
+        if let failure = await SystemEvents.offMain({ SystemEvents.sendShutDown() }) {
+            NSLog("Osprey: couldn't shut down: %@", failure)
+            notify(title: "Osprey couldn’t shut down your Mac", body: failure)
+        }
+    }
+
+    /// Notification permission is asked for at launch (`CaptureNotifier.requestAuthorization()`), not here.
     private func notify(title: String, body: String) {
         guard CaptureNotifier.isAvailable else { return }
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert]) { _, _ in }
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
-        center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content,
+                                                                     trigger: nil))
+    }
+}
+
+/// System Events' Shut down command, sent as a raw Apple Event so it can run off the main thread.
+private enum SystemEvents {
+    static let bundleID = "com.apple.systemevents"
+    /// The command's code in System Events' scripting dictionary (`fndrshut`).
+    static let eventClass = fourCharCode("fndr")
+    static let eventID = fourCharCode("shut")
+
+    /// Starts System Events in the background if it isn't running (Apple Events reach only running apps), then waits
+    /// up to 5 s for it to accept events.
+    @MainActor static func launch() async -> Bool {
+        if NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).isEmpty {
+            guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return false }
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = false
+            configuration.addsToRecentItems = false
+            do { try await NSWorkspace.shared.openApplication(at: url, configuration: configuration) } catch { return false }
+        }
+        for _ in 0..<20 {
+            if await offMain({ permission(askUserIfNeeded: false) }) != OSStatus(procNotFound) { return true }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        return false
+    }
+
+    /// `noErr` when allowed; `errAEEventNotPermitted` when denied; `errAEEventWouldRequireUserConsent` when not yet
+    /// asked and `askUserIfNeeded` is false; `procNotFound` when System Events isn't running. Blocks while the consent
+    /// prompt is up.
+    nonisolated static func permission(askUserIfNeeded: Bool) -> OSStatus {
+        let target = NSAppleEventDescriptor(bundleIdentifier: bundleID)
+        guard let address = target.aeDesc else { return OSStatus(procNotFound) }
+        return AEDeterminePermissionToAutomateTarget(address, eventClass, eventID, askUserIfNeeded)
+    }
+
+    /// Nil on success, otherwise what went wrong.
+    nonisolated static func sendShutDown() -> String? {
+        let event = NSAppleEventDescriptor(eventClass: eventClass, eventID: eventID,
+                                           targetDescriptor: NSAppleEventDescriptor(bundleIdentifier: bundleID),
+                                           returnID: AEReturnID(kAutoGenerateReturnID),
+                                           transactionID: AETransactionID(kAnyTransactionID))
+        do {
+            _ = try event.sendEvent(options: [.waitForReply], timeout: 30)
+            return nil
+        } catch let error as NSError where error.code == Int(errAETimeout) {
+            return nil                                   // shutting down can outlast the reply
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    /// Runs `work` on a utility queue, off the main thread and the Swift concurrency pool (it may block on a prompt).
+    nonisolated static func offMain<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async { continuation.resume(returning: work()) }
+        }
+    }
+
+    private static func fourCharCode(_ code: String) -> FourCharCode {
+        code.utf8.reduce(0) { $0 << 8 | FourCharCode($1) }
     }
 }
 
