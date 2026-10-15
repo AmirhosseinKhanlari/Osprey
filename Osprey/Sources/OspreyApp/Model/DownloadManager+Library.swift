@@ -187,6 +187,7 @@ extension DownloadManager {
             let credentials = stored.isEmpty ? inMemory : stored
             guard let fresh = replacement(for: item, credentials: credentials) else { return }
             fresh.queueID = queues.contains { $0.id == item.queueID } ? item.queueID : Queue.mainID   // stays in its queue
+            fresh.startedByUser = fresh.queueID != Queue.mainID                                     // and starts now
             insert(fresh, at: min(index, items.count), credentials: credentials)
         }
     }

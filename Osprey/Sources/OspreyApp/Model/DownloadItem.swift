@@ -109,6 +109,9 @@ final class DownloadItem: Identifiable {
     @ObservationIgnored var waitingInQueue = false
     /// Its queue stopped or is held, and the scheduler sent `pause()`; it keeps `wantsToRun` and runs again with the queue.
     @ObservationIgnored var heldByQueue = false
+    /// Resumed or retried by hand in a queue other than Main: it runs now, outside its queue's limit and whether or not
+    /// the queue runs. Cleared when it completes, fails, or is paused by hand. Never saved.
+    @ObservationIgnored var startedByUser = false
 
     init(task: any DownloadTask, url: URL, category: Category, origin: DownloadOrigin, maxConnections: Int, wantsToRun: Bool,
          folder: URL, isPrivate: Bool = false, kind: ItemKind = .file, playlistTitle: String? = nil, displayName: String? = nil,
