@@ -15,7 +15,9 @@ import Network
         guard !started else { return }
         started = true
         monitor.pathUpdateHandler = { [weak self] path in
-            let expensive = path.isExpensive, constrained = path.isConstrained, offline = path.status != .satisfied
+            let expensive = path.isExpensive, constrained = path.isConstrained
+            // Only "unsatisfied" is offline: "requiresConnection" (an on-demand VPN) connects when a download asks.
+            let offline = path.status == .unsatisfied
             MainActor.assumeIsolated {                   // the monitor runs on the main queue
                 guard let self, !self.hasPath || expensive != self.isExpensive || constrained != self.isConstrained
                         || offline != self.isOffline else { return }
