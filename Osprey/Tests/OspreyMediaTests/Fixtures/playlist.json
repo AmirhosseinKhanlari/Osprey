@@ -1,0 +1,4 @@
+{"_type":"playlist","id":"PL1","title":"Course","entries":[
+ {"_type":"url","id":"a1","url":"https://www.youtube.com/watch?v=a1","title":"Lesson 1","duration":300},
+ {"_type":"url","id":"a2","url":"https://www.youtube.com/watch?v=a2","title":"Lesson 2","duration":420},
+ {"_type":"url","id":"a3","url":"https://www.youtube.com/watch?v=a3","title":null,"duration":null}]}

@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="Osprey app icon: a glass osprey diving into an amber glass tray">
+<defs>
+<path id="L-bird" d="M512 300 C 528 300, 540 316, 548 340 C 600 330, 680 290, 752 236 C 776 218, 812 224, 806 256 C 790 300, 720 380, 640 430 C 600 455, 572 470, 560 488 C 568 520, 572 548, 568 578 C 566 612, 552 640, 534 652 C 530 672, 522 690, 512 704 C 502 690, 494 672, 490 652 C 472 640, 458 612, 456 578 C 452 548, 456 520, 464 488 C 452 470, 424 455, 384 430 C 304 380, 234 300, 218 256 C 212 224, 248 218, 272 236 C 344 290, 424 330, 476 340 C 484 316, 496 300, 512 300 Z"></path>
+<path id="L-tray" d="M274 620 L274 730 Q274 830 374 830 L650 830 Q750 830 750 730 L750 620 Q750 594 724 594 Q698 594 698 620 L698 726 Q698 778 646 778 L378 778 Q326 778 326 726 L326 620 Q326 594 300 594 Q274 594 274 620 Z"></path>
+<path id="L-pool" d="M330 646 C 400 632, 460 656, 512 646 C 564 636, 624 656, 694 646 L694 726 Q694 774 646 774 L378 774 Q330 774 330 726 Z"></path>
+<clipPath id="L-tile">
+<rect x="100" y="100" width="824" height="824" rx="186"></rect>
+</clipPath>
+<clipPath id="L-bird-clip">
+<use href="#L-bird"></use>
+</clipPath>
+<clipPath id="L-tray-clip">
+<use href="#L-tray"></use>
+</clipPath>
+<clipPath id="L-pool-clip">
+<use href="#L-pool"></use>
+</clipPath>
+<linearGradient id="L-bg-clear" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0" style="stop-color: #F3F6FA"></stop>
+<stop offset="1" style="stop-color: #CFD8E4"></stop>
+</linearGradient>
+<radialGradient id="L-blobA-clear" cx="800" cy="250" r="330" gradientUnits="userSpaceOnUse">
+<stop offset="0" style="stop-color: #FFFFFF; stop-opacity: 0.7"></stop>
+<stop offset="1" style="stop-color: #FFFFFF; stop-opacity: 0"></stop>
+</radialGradient>
+<radialGradient id="L-blobB-clear" cx="210" cy="860" r="360" gradientUnits="userSpaceOnUse">
+<stop offset="0" style="stop-color: #B9C6D8; stop-opacity: 0.55"></stop>
+<stop offset="1" style="stop-color: #B9C6D8; stop-opacity: 0"></stop>
+</radialGradient>
+<radialGradient id="L-light" cx="300" cy="130" r="620" gradientUnits="userSpaceOnUse">
+<stop offset="0" style="stop-color: #FFFFFF; stop-opacity: 0.32"></stop>
+<stop offset="1" style="stop-color: #FFFFFF; stop-opacity: 0"></stop>
+</radialGradient>
+<g id="L-scene-clear">
+<rect x="100" y="100" width="824" height="824" fill="url(#L-bg-clear)"></rect>
+<rect x="100" y="100" width="824" height="824" fill="url(#L-blobA-clear)"></rect>
+<rect x="100" y="100" width="824" height="824" fill="url(#L-blobB-clear)"></rect>
+<rect x="100" y="100" width="824" height="824" fill="url(#L-light)"></rect>
+</g>
+<linearGradient id="L-tray-clear" x1="0" y1="594" x2="0" y2="830" gradientUnits="userSpaceOnUse">
+<stop offset="0" style="stop-color: #FFFFFF"></stop>
+<stop offset="1" style="stop-color: #DCE3EC"></stop>
+</linearGradient>
+<linearGradient id="L-glass-clear" x1="0" y1="220" x2="0" y2="704" gradientUnits="userSpaceOnUse">
+<stop offset="0" style="stop-color: #FFFFFF; stop-opacity: 0.55"></stop>
+<stop offset="1" style="stop-color: #FFFFFF; stop-opacity: 0.22"></stop>
+</linearGradient>
+<linearGradient id="L-rim" x1="200" y1="200" x2="820" y2="840" gradientUnits="userSpaceOnUse">
+<stop offset="0" style="stop-color: #FFFFFF; stop-opacity: 1"></stop>
+<stop offset="0.45" style="stop-color: #FFFFFF; stop-opacity: 0.25"></stop>
+<stop offset="1" style="stop-color: #FFFFFF; stop-opacity: 0.85"></stop>
+</linearGradient>
+<filter id="L-frost" x="-10%" y="-10%" width="120%" height="120%">
+<feGaussianBlur stdDeviation="16"></feGaussianBlur>
+</filter>
+<filter id="L-soft" x="-30%" y="-30%" width="160%" height="160%">
+<feGaussianBlur stdDeviation="20"></feGaussianBlur>
+</filter>
+<filter id="L-glow" x="-10%" y="-10%" width="120%" height="120%">
+<feGaussianBlur stdDeviation="7"></feGaussianBlur>
+</filter>
+<filter id="L-spec" x="-50%" y="-50%" width="200%" height="200%">
+<feGaussianBlur stdDeviation="3"></feGaussianBlur>
+</filter>
+<filter id="L-tile-shadow" x="-20%" y="-20%" width="140%" height="140%">
+<feDropShadow dx="0" dy="18" stdDeviation="22" style="flood-color: #000000; flood-opacity: 0.28"></feDropShadow>
+</filter>
+</defs>
+<rect x="100" y="100" width="824" height="824" rx="186" fill="url(#L-bg-clear)" style="filter: url(#L-tile-shadow)"></rect>
+<g style="clip-path: url(#L-tile)">
+<use href="#L-scene-clear"></use>
+<use href="#L-tray" transform="translate(0 24)" style="fill: #5A6680; fill-opacity: 0.3; filter: url(#L-soft)"></use>
+<use href="#L-tray" transform="translate(0 30)" fill="url(#L-tray-clear)" style="fill-opacity: 0.35; filter: url(#L-soft)"></use>
+<use href="#L-bird" transform="translate(0 28)" style="fill: #5A6680; fill-opacity: 0.3; filter: url(#L-soft)"></use>
+<use href="#L-bird" transform="translate(0 34)" style="fill: #FFFFFF; fill-opacity: 0.3; filter: url(#L-soft)"></use>
+</g>
+<g style="clip-path: url(#L-pool-clip)">
+<g style="filter: url(#L-frost)">
+<use href="#L-scene-clear"></use>
+</g>
+</g>
+<use href="#L-pool" fill="url(#L-tray-clear)" style="fill-opacity: 0.32"></use>
+<path d="M336 650 C 402 637, 460 660, 512 650 C 564 640, 622 660, 688 650" style="fill: none; stroke: #FFFFFF; stroke-width: 3; stroke-opacity: 0.7; stroke-linecap: round"></path>
+<g style="clip-path: url(#L-tray-clip)">
+<g style="filter: url(#L-frost)" transform="translate(512 712) scale(1.06) translate(-512 -712)">
+<use href="#L-scene-clear"></use>
+</g>
+</g>
+<use href="#L-tray" fill="url(#L-tray-clear)" style="fill-opacity: 0.5"></use>
+<g style="clip-path: url(#L-tray-clip)">
+<use href="#L-tray" style="fill: none; stroke: #FFFFFF; stroke-width: 26; stroke-opacity: 0.45; filter: url(#L-glow)"></use>
+<use href="#L-tray" transform="translate(0 12)" style="fill: none; stroke: #FFFFFF; stroke-width: 18; stroke-opacity: 0.6; filter: url(#L-glow)"></use>
+<use href="#L-tray" transform="translate(0 -12)" style="fill: none; stroke: #5A6680; stroke-width: 18; stroke-opacity: 0.3; filter: url(#L-glow)"></use>
+</g>
+<use href="#L-tray" transform="translate(-1.5 -1.5)" style="fill: none; stroke: #7FF3FF; stroke-width: 1.6; stroke-opacity: 0.45"></use>
+<use href="#L-tray" transform="translate(1.5 1.5)" style="fill: none; stroke: #FF7FD1; stroke-width: 1.6; stroke-opacity: 0.4"></use>
+<use href="#L-tray" style="fill: none; stroke: url(#L-rim); stroke-width: 3.5"></use>
+<ellipse cx="292" cy="652" rx="7" ry="30" style="fill: #FFFFFF; fill-opacity: 0.85; filter: url(#L-spec)"></ellipse>
+<ellipse cx="716" cy="652" rx="5" ry="22" style="fill: #FFFFFF; fill-opacity: 0.5; filter: url(#L-spec)"></ellipse>
+<ellipse cx="350" cy="806" rx="34" ry="6" transform="rotate(14 350 806)" style="fill: #FFFFFF; fill-opacity: 0.45; filter: url(#L-spec)"></ellipse>
+<g style="clip-path: url(#L-bird-clip)">
+<g style="filter: url(#L-frost)" transform="translate(512 470) scale(1.06) translate(-512 -470)">
+<use href="#L-scene-clear"></use>
+<use href="#L-pool" fill="url(#L-tray-clear)" style="fill-opacity: 0.6"></use>
+<use href="#L-tray" fill="url(#L-tray-clear)"></use>
+</g>
+</g>
+<use href="#L-bird" fill="url(#L-glass-clear)"></use>
+<g style="clip-path: url(#L-bird-clip)">
+<use href="#L-bird" style="fill: none; stroke: #FFFFFF; stroke-width: 34; stroke-opacity: 0.5; filter: url(#L-glow)"></use>
+<use href="#L-bird" transform="translate(0 14)" style="fill: none; stroke: #FFFFFF; stroke-width: 22; stroke-opacity: 0.6; filter: url(#L-glow)"></use>
+<use href="#L-bird" transform="translate(0 -14)" style="fill: none; stroke: #5A6680; stroke-width: 22; stroke-opacity: 0.22; filter: url(#L-glow)"></use>
+<path d="M500 646 C 488 626, 474 604, 458 584" style="fill: none; stroke: #4A5468; stroke-width: 16; stroke-linecap: round; stroke-opacity: 0.85"></path>
+<path d="M524 646 C 536 626, 550 604, 566 584" style="fill: none; stroke: #4A5468; stroke-width: 16; stroke-linecap: round; stroke-opacity: 0.85"></path>
+<path d="M494 652 C 498 672, 504 690, 512 704 C 520 690, 526 672, 530 652 C 520 658, 504 658, 494 652 Z" style="fill: #4A5468; fill-opacity: 0.9"></path>
+</g>
+<circle cx="475" cy="606" r="9" style="fill: #8A94A8"></circle>
+<circle cx="549" cy="606" r="9" style="fill: #8A94A8"></circle>
+<circle cx="477" cy="604" r="3" style="fill: #FFFFFF; fill-opacity: 0.9"></circle>
+<circle cx="551" cy="604" r="3" style="fill: #FFFFFF; fill-opacity: 0.9"></circle>
+<use href="#L-bird" transform="translate(-1.5 -1.5)" style="fill: none; stroke: #7FF3FF; stroke-width: 1.6; stroke-opacity: 0.5"></use>
+<use href="#L-bird" transform="translate(1.5 1.5)" style="fill: none; stroke: #FF7FD1; stroke-width: 1.6; stroke-opacity: 0.45"></use>
+<use href="#L-bird" style="fill: none; stroke: url(#L-rim); stroke-width: 4"></use>
+<ellipse cx="366" cy="298" rx="62" ry="8" transform="rotate(27 366 298)" style="fill: #FFFFFF; fill-opacity: 0.85; filter: url(#L-spec)"></ellipse>
+<ellipse cx="658" cy="298" rx="50" ry="6" transform="rotate(-27 658 298)" style="fill: #FFFFFF; fill-opacity: 0.55; filter: url(#L-spec)"></ellipse>
+<ellipse cx="236" cy="240" rx="12" ry="6" transform="rotate(-30 236 240)" style="fill: #FFFFFF; fill-opacity: 0.9; filter: url(#L-spec)"></ellipse>
+<ellipse cx="512" cy="314" rx="14" ry="5" style="fill: #FFFFFF; fill-opacity: 0.8; filter: url(#L-spec)"></ellipse>
+<ellipse cx="470" cy="540" rx="5" ry="20" style="fill: #FFFFFF; fill-opacity: 0.6; filter: url(#L-spec)"></ellipse>
+<rect x="102" y="102" width="820" height="820" rx="184" style="fill: none; stroke: #FFFFFF; stroke-opacity: 0.65; stroke-width: 3"></rect>
+</svg>

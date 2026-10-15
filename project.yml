@@ -1,0 +1,126 @@
+name: Osprey
+options:
+  bundleIdPrefix: com.akhanlari
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    DEVELOPMENT_TEAM: 8CG9QYMSR5
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_HARDENED_RUNTIME: YES
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+packages:
+  OspreyKit:
+    path: Osprey
+targets:
+  Osprey:
+    type: application
+    platform: macOS
+    sources:
+      - path: Osprey/Sources/OspreyApp
+      - path: App/Assets.xcassets
+      - path: Design/AppIcon/AppIcon.icon
+        type: file
+        buildPhase: resources
+    dependencies:
+      - package: OspreyKit
+        product: OspreyEngine
+      - package: OspreyKit
+        product: OspreyBridge
+      - package: OspreyKit
+        product: OspreyIntegration
+      - package: OspreyKit
+        product: OspreyMedia
+      - package: OspreyKit
+        product: OspreyLibrary
+      - target: OspreySafari
+      - target: osprey-host
+        embed: true
+        codeSign: true
+        copy:
+          destination: executables
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Osprey
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        LSMinimumSystemVersion: "15.0"
+    entitlements:
+      path: App/Osprey.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - 8CG9QYMSR5.com.akhanlari.osprey
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.akhanlari.osprey
+        PRODUCT_NAME: Osprey
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  osprey-host:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Osprey/Sources/OspreyHost
+    dependencies:
+      - package: OspreyKit
+        product: OspreyBridge
+    entitlements:
+      path: Host/osprey-host.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - 8CG9QYMSR5.com.akhanlari.osprey
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.akhanlari.osprey.host
+        PRODUCT_NAME: osprey-host
+        GENERATE_INFOPLIST_FILE: YES
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        SKIP_INSTALL: YES
+  OspreySafari:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: Extensions/safari/Handler
+      - path: Extensions/safari/Resources
+        buildPhase: resources
+        excludes:
+          - icons
+      # A folder reference, so the icons keep the icons/ path the manifest names.
+      - path: Extensions/safari/Resources/icons
+        type: folder
+        buildPhase: resources
+    dependencies:
+      - package: OspreyKit
+        product: OspreyBridge
+    info:
+      path: Extensions/safari/Info.plist
+      properties:
+        CFBundleDisplayName: Osprey
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.Safari.web-extension
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SafariWebExtensionHandler
+    entitlements:
+      path: Extensions/safari/SafariExtension.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.application-groups:
+          - 8CG9QYMSR5.com.akhanlari.osprey
+        com.apple.security.network.client: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.akhanlari.osprey.SafariExtension
+        PRODUCT_NAME: OspreySafari
+schemes:
+  Osprey:
+    build:
+      targets:
+        Osprey: all
+    run:
+      config: Debug

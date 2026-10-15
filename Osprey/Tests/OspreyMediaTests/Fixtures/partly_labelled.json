@@ -1,0 +1,50 @@
+{
+  "id": "pl1",
+  "title": "Partly labelled",
+  "duration": 120,
+  "formats": [
+    {
+      "format_id": "233",
+      "ext": "mp4",
+      "protocol": "m3u8_native",
+      "vcodec": "none",
+      "acodec": "mp4a.40.5",
+      "abr": 48,
+      "url": "https://m.example/233"
+    },
+    {
+      "format_id": "fr-64",
+      "ext": "m4a",
+      "protocol": "https",
+      "vcodec": "none",
+      "acodec": "mp4a.40.2",
+      "abr": 64,
+      "filesize": 1000000,
+      "language": "fr",
+      "format_note": "French, low",
+      "url": "https://m.example/fr-64"
+    },
+    {
+      "format_id": "fr-192",
+      "ext": "m4a",
+      "protocol": "https",
+      "vcodec": "none",
+      "acodec": "mp4a.40.2",
+      "abr": 192,
+      "filesize": 3000000,
+      "language": "fr",
+      "format_note": "French, high",
+      "url": "https://m.example/fr-192"
+    },
+    {
+      "format_id": "137",
+      "ext": "mp4",
+      "protocol": "https",
+      "vcodec": "avc1.640028",
+      "acodec": "none",
+      "height": 1080,
+      "filesize": 50000000,
+      "url": "https://m.example/137"
+    }
+  ]
+}

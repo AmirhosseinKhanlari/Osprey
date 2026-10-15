@@ -1,0 +1,10 @@
+.DS_Store
+*.exe
+Osprey/.build/
+Osprey/.swiftpm/
+*.xcuserstate
+Osprey.xcodeproj/
+
+# Private: reverse-engineering notes and internal planning docs stay on this Mac only
+docs/0[0-7]-*.md
+docs/superpowers/

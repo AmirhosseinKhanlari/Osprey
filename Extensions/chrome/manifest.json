@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Osprey",
+  "description": "Hands your downloads to the Osprey download manager.",
+  "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAxSHb2Nh5rRjC2BK/f8AcpFiqLxHO2zahPqwlDBR1wClKRgkPNHZR1czpQNCLf8QfxIvpHSjQIC7Biv+xjZCDU8ToqTpxdPhwIN9RHArP9PNqv1ALo2FjaJYQCorWm+Tl6gp+cLcOupxSJME12OTjfOhzOwOKkaNtE5feoE18Fjx0OGHFIKr5SNFoodMdr6Lt5Vo0GrX2KVflREjNOY4rO+87r32ltvY3rbxhcPnTpInoZk43APT46eWd6pJP/740yLgp7k4iCCvsEnnta4JjNXiSehdnEZsbXtL8g6jMO1Esgkp3dHTFZua7YNlOQEj5Ps5I4MAbBd4XYLzbMcO7hwIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": ["downloads", "alarms", "contextMenus", "cookies", "nativeMessaging", "storage"],
+  "host_permissions": ["<all_urls>"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    { "matches": ["<all_urls>"], "js": ["rules.js", "video-button.js", "content.js"], "run_at": "document_start", "all_frames": true }
+  ],
+  "icons": { "16": "icons/icon-16.png", "32": "icons/icon-32.png", "48": "icons/icon-48.png", "128": "icons/icon-128.png" },
+  "action": {
+    "default_title": "Osprey",
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icons/icon-16.png", "32": "icons/icon-32.png" }
+  }
+}

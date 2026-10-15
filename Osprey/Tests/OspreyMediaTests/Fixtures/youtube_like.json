@@ -1,0 +1,15 @@
+{"id":"abc123","title":"Demo Talk","uploader":"Demo Channel","duration":600,"thumbnail":"https://i.example/abc123.jpg","webpage_url":"https://www.youtube.com/watch?v=abc123","extractor_key":"Youtube",
+ "formats":[
+  {"format_id":"sb0","ext":"mhtml","protocol":"mhtml","url":"https://i.example/sb","vcodec":"none","acodec":"none","format_note":"storyboard"},
+  {"format_id":"139","ext":"m4a","protocol":"https","url":"https://media.example/139","vcodec":"none","acodec":"mp4a.40.5","abr":48,"filesize":3600000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"140","ext":"m4a","protocol":"https","url":"https://media.example/140","vcodec":"none","acodec":"mp4a.40.2","abr":129,"filesize":9700000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"251","ext":"webm","protocol":"https","url":"https://media.example/251","vcodec":"none","acodec":"opus","abr":140,"filesize":10200000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"18","ext":"mp4","protocol":"https","url":"https://media.example/18","vcodec":"avc1.42001E","acodec":"mp4a.40.2","height":360,"width":640,"fps":30,"tbr":500,"filesize":37000000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"136","ext":"mp4","protocol":"https","url":"https://media.example/136","vcodec":"avc1.4d401f","acodec":"none","height":720,"width":1280,"fps":30,"tbr":1500,"filesize":110000000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"247","ext":"webm","protocol":"https","url":"https://media.example/247","vcodec":"vp9","acodec":"none","height":720,"width":1280,"fps":30,"tbr":1300,"filesize_approx":95000000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"299","ext":"mp4","protocol":"https","url":"https://media.example/299","vcodec":"avc1.64002a","acodec":"none","height":1080,"width":1920,"fps":60,"tbr":4500,"filesize":330000000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"303","ext":"webm","protocol":"https","url":"https://media.example/303","vcodec":"vp9","acodec":"none","height":1080,"width":1920,"fps":60,"tbr":4200,"filesize":310000000,"http_headers":{"User-Agent":"UA"}},
+  {"format_id":"315","ext":"webm","protocol":"https","url":"https://media.example/315","vcodec":"vp9","acodec":"none","height":2160,"width":3840,"fps":60,"tbr":18000,"filesize":1300000000,"http_headers":{"User-Agent":"UA"}}
+ ],
+ "subtitles":{"en":[{"ext":"vtt","url":"https://subs.example/en.vtt","name":"English"}]},
+ "automatic_captions":{"fr":[{"ext":"vtt","url":"https://subs.example/fr.vtt","name":"French (auto)"}]}}

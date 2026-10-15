@@ -1,0 +1,4 @@
+{"id":"d2","title":"Protected, no urls","formats":[
+ {"format_id":"dash-v","ext":"mp4","protocol":"http_dash_segments","vcodec":"avc1","acodec":"none","height":1080,"has_drm":true},
+ {"format_id":"dash-a","ext":"m4a","protocol":"http_dash_segments","vcodec":"none","acodec":"mp4a.40.2","has_drm":true},
+ {"ext":"mp4","protocol":"http_dash_segments","height":720,"has_drm":true}]}

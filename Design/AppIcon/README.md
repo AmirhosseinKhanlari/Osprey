@@ -1,0 +1,1 @@
+`AppIcon.icon` is the app icon (Icon Composer; its `Assets/` hold the layers), `osprey-icon-{default,dark,clear}.svg` are the approved full renders (the default one also feeds `render-extension-icons.sh` for the browser extensions), and `osprey-glyph-template.svg` is the one-colour glyph behind the menu bar's `MenuBarGlyph`.

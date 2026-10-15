@@ -1,0 +1,73 @@
+{
+  "id": "deo123",
+  "title": "German Original",
+  "uploader": "Channel",
+  "duration": 600,
+  "formats": [
+    {
+      "format_id": "136",
+      "ext": "mp4",
+      "protocol": "https",
+      "url": "https://m.example/136",
+      "vcodec": "avc1.4d401f",
+      "acodec": "none",
+      "height": 720,
+      "width": 1280,
+      "fps": 30,
+      "tbr": 1500,
+      "filesize": 110000000
+    },
+    {
+      "format_id": "299",
+      "ext": "mp4",
+      "protocol": "https",
+      "url": "https://m.example/299",
+      "vcodec": "avc1.64002a",
+      "acodec": "none",
+      "height": 1080,
+      "width": 1920,
+      "fps": 30,
+      "tbr": 4500,
+      "filesize": 330000000
+    },
+    {
+      "format_id": "140-0",
+      "ext": "m4a",
+      "protocol": "https",
+      "url": "https://m.example/140-0",
+      "vcodec": "none",
+      "acodec": "mp4a.40.2",
+      "abr": 160,
+      "filesize": 12000000,
+      "language": "de-DE",
+      "language_preference": 10,
+      "format_note": "German (Germany) original (default), medium"
+    },
+    {
+      "format_id": "140-1",
+      "ext": "m4a",
+      "protocol": "https",
+      "url": "https://m.example/140-1",
+      "vcodec": "none",
+      "acodec": "mp4a.40.2",
+      "abr": 129,
+      "filesize": 9700000,
+      "language": "en-US",
+      "language_preference": -1,
+      "format_note": "English (United States), medium"
+    },
+    {
+      "format_id": "140-2",
+      "ext": "m4a",
+      "protocol": "https",
+      "url": "https://m.example/140-2",
+      "vcodec": "none",
+      "acodec": "mp4a.40.2",
+      "abr": 129,
+      "filesize": 9600000,
+      "language": "es-US",
+      "language_preference": -1,
+      "format_note": "Spanish (United States), medium"
+    }
+  ]
+}
